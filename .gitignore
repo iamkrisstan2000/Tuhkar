@@ -1,0 +1,26 @@
+# Never publish signing secrets or owner-only archives
+.signing/
+.secrets/
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.key
+*password*
+.env
+.env.*
+*PRIVATE*
+*.zip
+# Generated Android/host artifacts
+output/
+classes/
+generated/
+dex/
+.test-classes/
+tools/
+__pycache__/
+*.pyc
+*.apk
+*.idsig
+local.properties
+.DS_Store
