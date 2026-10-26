@@ -13,6 +13,6 @@ Font files and their notices keep their original licenses; they are not relicens
 
 Radio Browser supplies radio directory data. iptv-org supplies public TV listings. Apple iTunes supplies title/artist cover search results; Wikipedia and directory-provided URLs may supply station/channel logos. These services and their data/content are not owned by or automatically relicensed by Tuhkar. Stream availability and viewing rights vary.
 
-Android framework/codecs, native Equalizer and Visualizer availability depend on the device. No proprietary audio engine, DRM bypass or paid-service access is bundled.
+Android framework/codecs, native Equalizer, auxiliary reverb and Visualizer availability depend on the device. No proprietary audio engine, DRM bypass or paid-service access is bundled.
 
 The public signing certificate and rotation history identify official release signatures. They contain **no private signing key**. Publisher label “KnightWin” is self-declared, not identity certification by Google or a certificate authority.

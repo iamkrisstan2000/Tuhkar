@@ -5,33 +5,25 @@
 
 A lightweight native Android media player, created by **KnightWin**.
 
-
-## Screenshots 
-
-
-<img width="1080" height="2400" alt="Screenshot_20261024-205729" src="https://github.com/user-attachments/assets/b30f1c68-9fa6-483d-980a-86d092f330cb" />
-<img width="1080" height="2400" alt="Screenshot_20261024-205725" src="https://github.com/user-attachments/assets/e4e9b40a-7c35-432b-bbe4-12c9ea9d7d2d" />
-<img width="1080" height="2400" alt="Screenshot_20261024-205716" src="https://github.com/user-attachments/assets/4d38c091-21c4-4dc3-9246-695569a6df51" />
-<img width="1080" height="2400" alt="Screenshot_20261024-205707" src="https://github.com/user-attachments/assets/05a79992-48e5-4682-8069-a6ddd5bac15f" />
-<img width="1080" height="2400" alt="Screenshot_20261024-205633" src="https://github.com/user-attachments/assets/2734468f-c738-48a8-bcc1-205305e876eb" />
-<img width="1080" height="2400" alt="Screenshot_20261024-205625" src="https://github.com/user-attachments/assets/4dac07f4-1212-4776-84e8-9de0645d74b8" />
-<img width="1080" height="2400" alt="Screenshot_20261024-205615" src="https://github.com/user-attachments/assets/ad262f9d-76ea-4936-adf9-e3665b489a14" />
-<img width="1080" height="2400" alt="Screenshot_20261024-205815" src="https://github.com/user-attachments/assets/c28e48d3-1e58-4e9c-9161-fc86af2a7e20" />
-<img width="1080" height="2400" alt="Screenshot_20261024-205802" src="https://github.com/user-attachments/assets/7ef74ab2-6e50-47e0-9765-4f291af0ff4a" />
-<img width="1080" height="2400" alt="Screenshot_20261024-205735" src="https://github.com/user-attachments/assets/1df8bf30-e837-4f67-ad34-e039b9831c84" />
-
-
 ## Make yourself at home
 
 - Play music and videos from your phone or SD card.
 - Explore online radio and TV through community directories.
 - Enjoy spinning artwork, beat-reactive disc effects and your phone’s native equalizer.
-- Pick your accent, light/dark theme, OLED mode and favorite media layout.
+- Fine-tune Audio Enhancements: music-only room reverb and optional crossfade up to 2 seconds.
+- Keep the TV preview playing while browsing other sections; select another item to switch playback.
+- Browse FM stations by country or Worldwide, with a region preference separate from TV.
+- Use Android 13+ launcher themed icons to match your system accent.
+- Pick from ten accent themes, light/dark mode, OLED mode and your favorite media layout.
 - Save favorites and keep music/radio playing in the background.
+
+## What’s new in 1.1.0
+
+Audio Enhancements, FM regions, smoother TV browsing, new themes, clearer Settings, improved landscape alignment and clean adaptive/themed icons. See the short [changelog](CHANGELOG.md).
 
 ## Get the app
 
-Download **Tuhkar-v1.0.0.apk** from this repository’s **Releases** tab. Requires Android 8.0 or newer; some audio effects depend on your device.
+Download **Tuhkar-v1.1.0.apk** from this repository’s **Releases** tab. Requires Android 8.0 or newer; some audio effects depend on your device.
 
 Try installing over your current Tuhkar build first—don’t uninstall just to upgrade. Key-rotation history is included for Android 9+. See [Signing](signing/README.md) for the Android 8 fallback and verification details.
 

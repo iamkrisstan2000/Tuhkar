@@ -12,3 +12,11 @@
 - **Optional permissions can be declined.** Setup reviews missing access and offers Retry or Continue anyway. Access can be changed later in Android/App settings.
 
 This app is published as open-source software, without a security audit or a promise of Google endorsement. Report concerns without including private media, passwords or signing keys.
+
+## Native Audio Enhancements
+
+Equalizer settings use Tuhkar playback sessions. Optional room reverb routes only Tuhkar music players to one native auxiliary effect; its Android session-zero auxiliary API is not output recording or a global equalizer. Local-music crossfade prepares at most one upcoming track near the end of the current track. Neither feature records the microphone, stores analyzed audio, uploads audio or adds permissions. Both controls default to Off.
+
+## FM region selection
+
+FM country filtering sends the manually selected two-letter country code, and any station-name search, to Radio Browser. The selection does not use GPS or request location permission. Worldwide mode omits the country filter. Your FM region preference is stored locally and is separate from the TV region.
