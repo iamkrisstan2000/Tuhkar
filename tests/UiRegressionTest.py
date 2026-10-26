@@ -31,7 +31,7 @@ assert 'nav.setMinimumWidth(dp(272))' in source
 assert 'if(settingsOpen){renderSettings();if(!landscape)addBottomNav();return;}' in source
 assert 'videoParams.bottomMargin=dp(12)' in source and 'pictureParams.bottomMargin=dp(12)' in source
 assert '((RoundedVideoView)surface).output()' in source and 'else player.setSurface(output)' in source
-assert 'else if(picture.output()==null)detachVideoOutput(picture)' in source
+assert 'if(picture.output()==null){detachVideoOutput(picture);return;}' in source
 assert 'detachVideoOutput(fullscreenPicture)' in source
 assert 'clearVideoOutputCache();playback=null;player=null;' in source
 assert 'if(surface==picture)' in source
@@ -55,7 +55,7 @@ assert 'dp(full?56:64)' in player
 assert 'playerBox=column();playerBox.setPadding(dp(landscape?12:0),dp(2),dp(landscape?12:0),0);' in source
 assert 'if(setupOpen||settingsOpen)render();else if(tab==0||tab==2)loadLocal();' in source
 icons = Path('app/src/com/luma/media/FluentIcon.java').read_text()
-for kind in range(11,16):
+for kind in [12,14,15]:
     assert 'kind==' + str(kind) in icons
 assert 'bold(headline);' in source and 'bold(caption);' in source and 'bold(heading);' in source
 assert 'TextView title=text("Settings",28,ink);bold(title);' in source
@@ -210,7 +210,7 @@ assert 'cardAccent=AccentStyle.base' in source and 'palette.tinted(cardAccent,da
 assert 'main.postDelayed(this,200)' in source
 assert 'void swipeSelect(int index)' in source and 'else playback.selectPaused(item)' in source
 assert 'Recording — Android' in source and 'Continue anyway' in source
-print('PASS: seven curated accents/RGB steady-card wave, swipe preserve-pause routing, single prior notice/batched permission flow, paired access icons and Reset card above About')
+print('PASS: ten curated accents/RGB steady-card wave, swipe preserve-pause routing, single prior notice/batched permission flow, paired access icons and Reset card above About')
 
 assert "Allow Tuhkar to find music and videos on your phone and SD card." not in source
 assert "On: use only the Music or Movies folder and its subfolders. Off: include other folders too." in source
@@ -267,3 +267,60 @@ for phrase in ['No ads or analytics','titles/artists','Record audio','no microph
     assert phrase in about
 assert len(about)<1200
 print('PASS: two-choice scripted welcome; redundant Media Access sentence removed; short About retains key privacy, permission, reset, stream and attribution notices')
+
+assert source.count("if(landscape){playerBox.setGravity(Gravity.CENTER_VERTICAL);playerBox.setPadding(dp(12),dp(12),dp(12),dp(12));")==1
+assert "miniParams.setMargins(dp(16),0,dp(16),0)" in source
+print("PASS: landscape-only vertically centered compact/video player pane with symmetric 12dp padding; portrait compact margins retained")
+
+assert 'button("About & privacy"' not in source
+assert 'aboutLogo.setImageResource(R.drawable.tuhkar_wordmark)' in source
+assert 'aboutLogo.setOnClickListener(v->about())' in source
+assert 'aboutLogo.setContentDescription("About and privacy")' in source
+assert 'aboutRow.addView(aboutLogo,new LinearLayout.LayoutParams(dp(112),dp(56)))' in source
+assert 'for(int start=0;start<AccentStyle.IDS.length;start+=2)' in source
+assert 'for(int column=0;column<2;column++)' in source
+assert 'int index=start+column' in source and 'if(index>=AccentStyle.IDS.length)' in source
+import xml.etree.ElementTree as IconXml
+for qualifier in ['v26','v33']:
+    icon=IconXml.parse('app/res/mipmap-anydpi-'+qualifier+'/ic_launcher.xml').getroot()
+    attr='{http://schemas.android.com/apk/res/android}drawable'
+    assert icon.find('background').attrib[attr]=='@color/icon_background'
+    assert icon.find('foreground').attrib[attr]=='@drawable/ic_foreground'
+assert icon.find('monochrome') is not None
+print('PASS: tappable right-side About logo with accessible label, two-column theme ordering/odd-tail guard, full-bleed adaptive icon layer wiring and Android13 monochrome retained')
+
+for qualifier in ['v26','v33']:
+    for name in ['ic_launcher','ic_launcher_round']:
+        icon=IconXml.parse('app/res/mipmap-anydpi-'+qualifier+'/'+name+'.xml').getroot()
+        assert icon.find('monochrome').attrib[attr]=='@drawable/ic_monochrome'
+for name in ['ic_foreground','ic_monochrome']:
+    vector=IconXml.parse('app/res/drawable/'+name+'.xml').getroot()
+    assert vector.tag=='vector' and len(vector.findall('path'))>0
+print('PASS: nonempty clean vector foreground and monochrome glyph; both standard/round launcher resources carry monochrome in v26 and v33 variants')
+
+assert 'note.setPadding(0,dp(6),0,0)' in source
+assert 'styles.addView(spacedSettingsNote("Previews are illustrative.' in source
+assert 'TextView status=spacedSettingsNote("Music only ·' in source
+assert 'card.addView(spacedSettingsNote("Choose your preset now.' in source
+assert 'card.addView(spacedSettingsNote(equalizer.error,12,muted))' in source
+assert 'card.addView(spacedSettingsNote(equalizer.enabled()?' in source
+print('PASS: subtle 6dp top spacing scoped to Media Layout footer, preset explanation/error and bottom enhancement note')
+
+remote=source[source.index('    void addRemoteHeaderTools('):source.index('    void render(){')]
+assert 'if(tab!=1&&tab!=3)return;' in remote
+assert 'tab==1?RadioDirectory.label(fmCountry):country.toUpperCase' in remote
+assert '()->chooseCountry()' in remote
+assert 'region=target==1?fmCountry:country' in source and 'RadioDirectory.path(q,region)' in source
+assert 'if(radio)options.add(0,"Worldwide")' in source
+assert 'b.putString("fmCountry",fmCountry)' in source
+assert 'state.getString("fmCountry",fmCountry)' in source
+region=source[source.index('    void applyRegion('):source.index('    void addUrl(){')]
+assert 'prefs.edit().putString("fmCountry",fmCountry).apply()' in region
+assert not any(call in region for call in ['.play(','.pause(','.seekTo(','.stopPlayback(','.reset('])
+assert 'if(pendingSearch!=null)main.removeCallbacks(pendingSearch)' in region
+print('PASS: FM/TV Region header wiring, independent persisted/restored FM choice, Worldwide option, region-scoped search and no playback mutations on region changes')
+
+assert "kind==11" not in icons and "kind==13" not in icons
+assert "void addWeight(" not in source and "final String[] icons=" not in source
+assert "AudioManager audio;" not in source
+print("PASS: obsolete scan/headphone glyphs, unused activity AudioManager, symbol array and weight helper removed; active native controls retained")

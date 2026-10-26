@@ -8,7 +8,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import subprocess
 stubs = {
-'android/content/SharedPreferences.java':'package android.content;public class SharedPreferences {public int getInt(String k,int d){return d;}public boolean getBoolean(String k,boolean d){return d;}}',
+'android/content/SharedPreferences.java':'package android.content;public class SharedPreferences {public java.util.HashMap<String,Integer> values=new java.util.HashMap<>();public void putInt(String k,int v){values.put(k,v);}public int getInt(String k,int d){return values.getOrDefault(k,d);}public boolean getBoolean(String k,boolean d){return d;}}',
 'android/content/Context.java':'''package android.content;
 import android.app.*;import android.media.*;
 public class Context {
@@ -45,7 +45,7 @@ public class Context {
 'android/os/Looper.java':'package android.os;public class Looper {public static Looper getMainLooper(){return new Looper();}}',
 'android/os/Handler.java':'''package android.os;import java.util.*;public class Handler {public final ArrayList<Runnable> pending=new ArrayList<>();public Handler(Looper l){}public void postDelayed(Runnable r,long delay){pending.add(r);}public void removeCallbacksAndMessages(Object token){pending.clear();}public void runPending(){ArrayList<Runnable> copy=new ArrayList<>(pending);pending.clear();for(Runnable r:copy)r.run();}}''',
 'android/os/PowerManager.java':'package android.os;public class PowerManager {public static final int PARTIAL_WAKE_LOCK=1;}',
-'android/os/SystemClock.java':'package android.os;public class SystemClock {public static long elapsedRealtime(){return 1;}}',
+'android/os/SystemClock.java':'package android.os;public class SystemClock {public static long now=1;public static long elapsedRealtime(){return now;}}',
 'android/view/KeyEvent.java':'package android.view;public class KeyEvent {}',
 'android/net/Uri.java':'package android.net;public class Uri {public final String value;private Uri(String s){value=s;}public static Uri parse(String s){return new Uri(s);}}',
 'android/media/AudioAttributes.java':'package android.media;public class AudioAttributes {public static final int USAGE_MEDIA=1,CONTENT_TYPE_MUSIC=2,CONTENT_TYPE_MOVIE=3;public static class Builder {public Builder setUsage(int u){return this;}public Builder setContentType(int c){return this;}public AudioAttributes build(){return new AudioAttributes();}}}',
@@ -58,12 +58,14 @@ public class Context {
 'android/media/MediaPlayer.java':'''package android.media;
 import android.content.Context;import android.net.Uri;
 public class MediaPlayer {
- public static final int MEDIA_INFO_BUFFERING_START=701,MEDIA_INFO_BUFFERING_END=702;public boolean started,released,wake,ready;public int pos,duration=100000;public Object display;
+ public static final int MEDIA_INFO_BUFFERING_START=701,MEDIA_INFO_BUFFERING_END=702;public boolean started,released,wake,ready;public int pos,duration=100000,aux;public float volume=1,send;public boolean failStart;public Object display;public static int live,peak,created;public MediaPlayer(){live++;created++;peak=Math.max(peak,live);}public void setVolume(float l,float r){if(released)throw new IllegalStateException();volume=l;}public void attachAuxEffect(int id){aux=id;}public void setAuxEffectSendLevel(float level){send=level;}
  public interface OnPreparedListener{void onPrepared(MediaPlayer p);}public interface OnCompletionListener{void onCompletion(MediaPlayer p);}public interface OnErrorListener{boolean onError(MediaPlayer p,int w,int e);}public interface OnInfoListener{boolean onInfo(MediaPlayer p,int w,int e);}public interface OnVideoSizeChangedListener{void onVideoSizeChanged(MediaPlayer p,int w,int h);}public interface OnSeekCompleteListener{void onSeekComplete(MediaPlayer p);}
  public OnPreparedListener prep;public OnCompletionListener complete;public OnErrorListener error;public OnInfoListener info;public OnVideoSizeChangedListener size;public OnSeekCompleteListener seek;
  public void setWakeMode(Context c,int mode){wake=true;}public void setAudioAttributes(AudioAttributes a){}public void setOnPreparedListener(OnPreparedListener l){prep=l;}public void setOnCompletionListener(OnCompletionListener l){complete=l;}public void setOnErrorListener(OnErrorListener l){error=l;}public void setOnInfoListener(OnInfoListener l){info=l;}public void setOnVideoSizeChangedListener(OnVideoSizeChangedListener l){size=l;}public void setOnSeekCompleteListener(OnSeekCompleteListener l){seek=l;}
- public void setDataSource(Context c,Uri uri){if(uri.value.equals("bad"))throw new IllegalArgumentException("bad source");}public void prepareAsync(){}public void emitPrepared(){ready=true;if(prep!=null)prep.onPrepared(this);}public void emitCompletion(){started=false;if(complete!=null)complete.onCompletion(this);}public void start(){if(released||!ready)throw new IllegalStateException();started=true;}public void pause(){started=false;}public void release(){started=false;released=true;}public int getAudioSessionId(){return 7;}public int getDuration(){if(!ready)throw new IllegalStateException();return duration;}public int getCurrentPosition(){return pos;}public void seekTo(int p){pos=p;if(seek!=null)seek.onSeekComplete(this);}public void setDisplay(Object holder){display=holder;}
+ public void setDataSource(Context c,Uri uri){if(uri.value.equals("bad"))throw new IllegalArgumentException("bad source");}public void prepareAsync(){}public void emitPrepared(){ready=true;if(prep!=null)prep.onPrepared(this);}public void emitCompletion(){started=false;if(complete!=null)complete.onCompletion(this);}public void start(){if(released||!ready||failStart)throw new IllegalStateException();started=true;}public void pause(){started=false;}public void release(){if(!released)live--;started=false;released=true;}public int getAudioSessionId(){return 7;}public int getDuration(){if(!ready)throw new IllegalStateException();return duration;}public int getCurrentPosition(){return pos;}public void seekTo(int p){pos=p;if(seek!=null)seek.onSeekComplete(this);}public void setDisplay(Object holder){display=holder;}
 }''',
+'android/media/audiofx/AudioEffect.java':'package android.media.audiofx;public class AudioEffect {public static final int SUCCESS=0;}',
+'android/media/audiofx/PresetReverb.java':'''package android.media.audiofx;public class PresetReverb {public static final short PRESET_MEDIUMROOM=3;public static boolean unavailable;public static int live,created;boolean released;public PresetReverb(int priority,int session){if(session!=0)throw new AssertionError();if(unavailable)throw new IllegalStateException();live++;created++;}public void setPreset(short p){}public int setEnabled(boolean b){return 0;}public int getId(){return 44;}public void release(){if(!released)live--;released=true;}}''',
 'android/media/MediaMetadata.java':'''package android.media;public class MediaMetadata {public static final String METADATA_KEY_TITLE="title",METADATA_KEY_ARTIST="artist",METADATA_KEY_DISPLAY_SUBTITLE="subtitle",METADATA_KEY_DURATION="duration";public static class Builder {public Builder putString(String k,String v){return this;}public Builder putLong(String k,long v){return this;}public MediaMetadata build(){return new MediaMetadata();}}}''',
 'android/media/session/PlaybackState.java':'''package android.media.session;public class PlaybackState {public static final long ACTION_PLAY=1,ACTION_PAUSE=2,ACTION_PLAY_PAUSE=4,ACTION_STOP=8,ACTION_SKIP_TO_NEXT=16,ACTION_SKIP_TO_PREVIOUS=32,ACTION_SEEK_TO=64;public static final int STATE_STOPPED=1,STATE_BUFFERING=2,STATE_PLAYING=3,STATE_PAUSED=4;public int state;public static class Builder {final PlaybackState s=new PlaybackState();public Builder setActions(long a){return this;}public Builder setState(int state,long p,float speed,long time){s.state=state;return this;}public PlaybackState build(){return s;}}}''',
 'android/media/session/MediaSession.java':'''package android.media.session;
@@ -115,6 +117,9 @@ with TemporaryDirectory(prefix='tuhkar-service-') as temp:
     root=Path(temp);files=[]
     for name,content in stubs.items():
         file=root/name;file.parent.mkdir(parents=True,exist_ok=True);file.write_text(content);files.append(str(file))
-    actual=[str(Path('app/src/com/luma/media/'+name+'.java').resolve()) for name in ['PlaybackService','PlaybackQueue']]
+    stubsFile=root/'com/luma/media/EnhancementsContractTest.java';stubsFile.write_text(Path('tests/fixtures/EnhancementsContract.java.txt').read_text());files.append(str(stubsFile))
+    actual=[str(Path('app/src/com/luma/media/'+name+'.java').resolve()) for name in ['PlaybackService','PlaybackQueue','NativeReverb','MusicCrossfade','CrossfadeMath','AudioGlowMath']]
     subprocess.run(['javac','-d',str(root/'classes'),*files,*actual],check=True)
     subprocess.run(['java','-cp',str(root/'classes'),'com.luma.media.PlaybackServiceContractTest'],check=True)
+
+    subprocess.run(['java','-cp',str(root/'classes'),'com.luma.media.EnhancementsContractTest'],check=True)

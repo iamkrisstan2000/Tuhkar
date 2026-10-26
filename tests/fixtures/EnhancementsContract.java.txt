@@ -1,0 +1,45 @@
+/* Copyright (C) 2026 KnightWin
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+package com.luma.media;
+import android.media.MediaPlayer;
+import android.media.audiofx.PresetReverb;
+import android.os.SystemClock;
+import java.util.*;
+
+public class EnhancementsContractTest {
+ static int checks;
+ static void check(boolean b,String message){checks++;if(!b)throw new AssertionError(message);}
+ static void near(float a,float b,String message){check(Math.abs(a-b)<.001,message);}
+ static MainActivity.Item item(String name,String kind){return new MainActivity.Item(name,kind);}
+ static final MainActivity.Item a=item("a","music"),b=item("b","music");
+ static PlaybackService start(int fade,int reverb,MainActivity.Item... items){PlaybackService s=new PlaybackService();s.onCreate();s.crossfade.prefs.putInt("crossfadeMs",fade);s.reverb.prefs.putInt("reverbAmount",reverb);s.queue.reset(Arrays.asList(items),items[0]);s.play(items[0]);s.player.emitPrepared();return s;}
+ static void tick(PlaybackService s){s.crossfade.handler.runPending();check(s.crossfade.handler.pending.size()<=1,"at most one crossfade timer");check(MediaPlayer.live<=2,"at most two decoders");}
+ static MediaPlayer preload(PlaybackService s){s.player.pos=95000;tick(s);check(s.crossfade.waiting!=null,"near-end preload");MediaPlayer p=s.crossfade.waiting;p.emitPrepared();return p;}
+ static MediaPlayer fade(PlaybackService s){MediaPlayer p=preload(s);s.player.pos=98000;tick(s);check(s.player==p&&s.current==b&&s.crossfade.tail!=null,"prepared incoming becomes current only at fade start");return p;}
+ static void close(PlaybackService s){s.onDestroy();check(MediaPlayer.live==0&&PresetReverb.live==0,"all decoder/effect resources released");check(s.crossfade.handler.pending.isEmpty(),"crossfade timer released");}
+ public static void main(String[] args){
+  check(CrossfadeMath.clamp(-1)==0&&CrossfadeMath.clamp(2001)==2000,"settings bounded to 2 seconds");
+  check(CrossfadeMath.duration(2000,900,1000)==500,"short incoming track and remaining time shorten fade");
+  for(int ms=-100;ms<=2200;ms++){float p=CrossfadeMath.progress(ms,2000);check(p>=0&&p<=1,"bounded ramp");near(CrossfadeMath.incoming(p)+CrossfadeMath.outgoing(p),1,"constant-sum ramp");}
+  PlaybackService s=start(0,0,a,b);int before=MediaPlayer.created;s.player.pos=99000;tick(s);check(MediaPlayer.created==before&&s.crossfade.waiting==null&&s.crossfade.handler.pending.isEmpty(),"default off: no decoder or timer overhead");close(s);
+  s=start(2000,35,a,b);MediaPlayer old=s.player;check(old.aux!=0&&Math.abs(old.send-.35f)<.001&&PresetReverb.live==1,"fixed room, continuous music send");tick(s);check(s.crossfade.waiting==null,"no early whole-track preload");MediaPlayer incoming=fade(s);check(!old.released&&old.started&&incoming.started,"both decoders play during overlap");check(incoming.aux==old.aux&&PresetReverb.live==1,"one shared native auxiliary effect");near(incoming.volume,0,"incoming begins silent");SystemClock.now+=1000;tick(s);near(incoming.volume,.5f,"incoming midpoint gain");near(old.volume,.5f,"tail midpoint gain");SystemClock.now+=1000;tick(s);check(old.released&&s.crossfade.tail==null&&s.player==incoming,"tail released at fade end");near(incoming.volume,1,"current restored to full volume");check(s.equalizer.attached,"incoming owns new equalizer");close(s);
+  s=start(2000,0,a,b);old=s.player;incoming=fade(s);s.pause();check(!s.playing&&old.released&&!incoming.released&&s.crossfade.tail==null,"pause cancels overlap but keeps current");near(incoming.volume,1,"pause restores current gain");check(s.crossfade.handler.pending.isEmpty(),"paused has no timer");s.resume();check(s.playing,"resume current");close(s);
+  s=start(2000,0,a,b);incoming=preload(s);MediaPlayer.OnPreparedListener stale=incoming.prep;s.seekTo(4000);check(incoming.released&&s.crossfade.waiting==null&&s.position()==4000,"seek cancels queued decoder");stale.onPrepared(incoming);check(!s.crossfade.ready,"late preparation cannot revive cancelled decoder");close(s);
+  for(int action=0;action<5;action++){s=start(2000,20,a,b);old=s.player;incoming=fade(s);if(action==0)s.noisy.onReceive(s,new android.content.Intent());if(action==1)s.focus.listener.onAudioFocusChange(-1);if(action==2)s.stopPlayback();if(action==3){s.crossfade.prefs.putInt("crossfadeMs",0);s.applyAudioEnhancements();}if(action==4)s.play(a);check(old.released&&s.crossfade.tail==null&&s.crossfade.waiting==null,"headphone/focus/stop/settings/new selection cancel every overlap");if(s.player!=null)near(s.player.volume,1,"cancel restores active gain");close(s);}
+  s=start(2000,0,a,b);incoming=preload(s);old=s.player;incoming.error.onError(incoming,1,1);check(incoming.released&&s.player==old&&s.playing,"preload failure never interrupts current");int attempts=MediaPlayer.created;tick(s);check(MediaPlayer.created==attempts,"failed candidate is not retried every poll");old.emitCompletion();check(s.current==b&&s.player!=old,"ordinary completion remains fallback");s.player.emitPrepared();close(s);
+  s=start(2000,0,a,b);incoming=preload(s);old=s.player;incoming.failStart=true;old.pos=98000;tick(s);check(s.player==old&&s.playing&&incoming.released,"failed incoming start keeps original playback");close(s);
+  s=start(2000,0,a,b);old=s.player;incoming=fade(s);incoming.error.onError(incoming,1,1);check(s.player==old&&s.current==a&&s.playing&&incoming.released,"incoming decoder error recovers still-playing tail");near(old.volume,1,"error recovery gain restored");attempts=MediaPlayer.created;tick(s);check(MediaPlayer.created==attempts,"recovered failed incoming is not immediately retried");close(s);
+  for(String kind:new String[]{"radio","tv","video"}){s=start(2000,90,item(kind,kind),b);s.player.pos=99000;before=MediaPlayer.created;tick(s);check(MediaPlayer.created==before&&s.crossfade.waiting==null&&s.player.aux==0&&s.player.send==0,"no crossfade or reverb on "+kind);check(s.crossfade.handler.pending.isEmpty(),"non-music has no timer");close(s);}
+  s=start(2000,0,a,b);incoming=preload(s);s.queue.setRepeatMode(PlaybackQueue.ONE);tick(s);check(incoming.released&&s.crossfade.waitingItem==a,"queue change invalidates stale preload");close(s);
+  s=start(2000,0,a);s.queue.setRepeatMode(PlaybackQueue.ONE);old=s.player;preload(s);old.pos=98000;tick(s);check(s.current==a&&s.player!=old&&s.crossfade.tail==old,"repeat one crossfades own track");close(s);
+  s=start(2000,0,a,b);s.queue.setRepeatMode(PlaybackQueue.ALL);check(s.queue.peekNext(b)==a,"nonshuffled repeat all peeks wrap");s.queue.setShuffle(true,a);List<MainActivity.Item> order=s.queue.snapshot();MainActivity.Item last=order.get(order.size()-1);check(s.queue.peekNext(last)==null&&order.equals(s.queue.snapshot()),"shuffled wrap does not speculate or mutate order");close(s);
+  s=start(2000,0,item("https://example.invalid/song.mp3","music"),b);s.player.pos=99000;before=MediaPlayer.created;tick(s);check(MediaPlayer.created==before&&s.crossfade.handler.pending.isEmpty(),"remote music excluded from local-only crossfade");close(s);
+  s=start(2000,0,a,item("https://example.invalid/next.mp3","music"));s.player.pos=99000;tick(s);check(s.crossfade.waiting==null,"remote next item excluded from crossfade");close(s);
+  PresetReverb.unavailable=true;s=start(0,100,a,b);check(s.playing&&s.player.aux==0&&s.player.send==0&&!s.reverb.error.isEmpty(),"unsupported reverb degrades to ordinary playback");close(s);PresetReverb.unavailable=false;
+  s=start(0,100,a);s.reverb.prefs.putInt("reverbAmount",200);s.applyAudioEnhancements();near(s.player.send,1,"reverb clamps at 100 percent");s.reverb.prefs.putInt("reverbAmount",0);s.applyAudioEnhancements();check(PresetReverb.live==0&&s.player.aux==0,"off detaches and releases auxiliary effect");close(s);
+  check(MediaPlayer.peak<=2,"peak two decoders across every scenario");
+  System.out.println("PASS: "+checks+" actual crossfade/reverb/controller assertions: music-only routing, bounded constant-sum fades, lazy preload, pause/seek/focus/noisy/stop/settings/selection cleanup, queue/repeat, error fallback/recovery and shared-effect release.");
+  System.out.println("NOTE: deterministic Android media/effect doubles; not real audio quality, hardware effect capability or gapless decoding verification.");
+ }
+}

@@ -14,14 +14,11 @@ public final class AudioGlowMathTest {
         fft=new byte[512];fft[0]=127;fft[1]=127;AudioGlowMath.bands(fft,44100000,out);check(out[0]==0&&out[1]==0&&out[2]==0,"DC/Nyquist bins excluded");
         AudioGlowMath.bands(null,44100000,out);check(out[0]==0&&out[1]==0&&out[2]==0,"missing capture resets energy");
         check(AudioGlowMath.clamp(Float.NaN)==0&&AudioGlowMath.clamp(Float.POSITIVE_INFINITY)==1,"nonfinite input bounded");
-        check(AudioGlowMath.smooth(0,1)>AudioGlowMath.smooth(1,0)-.5f,"bounded attack and release");
         Random rng=new Random(23);
         for(int n=0;n<10000;n++){
             fft=new byte[512];rng.nextBytes(fft);AudioGlowMath.bands(fft,48000000,out);
             for(float v:out)check(v>=0&&v<=1&&!Float.isNaN(v),"random capture bounded");
-            float previous=rng.nextFloat(),target=rng.nextFloat(),smoothed=AudioGlowMath.smooth(previous,target);
-            check(smoothed>=Math.min(previous,target)&&smoothed<=Math.max(previous,target),"smoothing no overshoot");
         }
-        System.out.println("PASS: "+checks+" FFT band/smoothing checks: real low/mid/high energy, silence/DC exclusion, signed FFT and bounded attack/release");
+        System.out.println("PASS: "+checks+" FFT band checks: real low/mid/high energy, silence/DC exclusion, signed FFT and bounded energy");
     }
 }
