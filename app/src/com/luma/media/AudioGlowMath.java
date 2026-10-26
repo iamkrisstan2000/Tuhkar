@@ -19,5 +19,4 @@ final class AudioGlowMath {
         }
         for(int i=0;i<3;i++)out[i]=counts[i]==0?0:clamp(out[i]*5f/counts[i]);
     }
-    static float smooth(float previous,float target){float p=clamp(previous),t=clamp(target);return clamp(p+(t-p)*(t>p?.55f:.22f));}
 }

@@ -19,7 +19,19 @@ final class NativeEq {
     NativeEq(SharedPreferences prefs){this.prefs=prefs;}
     boolean enabled(){return prefs.getBoolean("eqEnabled",false);}
     int preset(){return Math.max(0,Math.min(PRESETS.length-1,prefs.getInt("eqPreset",1)));}
-    private void capabilities(Equalizer eq){short count=eq.getNumberOfBands();if(count<1||count>32)throw new IllegalStateException("Unsupported band count");float[] centers=new float[count];short[] range=eq.getBandLevelRange();int low=range[0]/100,high=range[1]/100;if(high<low)throw new IllegalStateException("Invalid gain range");for(short b=0;b<count;b++){centers[b]=eq.getCenterFreq(b)/1000f;if(centers[b]<=0)throw new IllegalStateException("Invalid center frequency");}min=low;max=high;frequencies=centers;}
+    float[] editorFrequencies(){return frequencies==null?REF.clone():frequencies;}
+    float editorLevel(int band){return frequencies==null?(band>=0&&band<REF.length?prefs.getFloat("eqDraft_"+Math.round(REF[band]),0):0):level(band);}
+    private static float interpolate(float[] centers,float[] levels,float hz){
+        if(hz<=centers[0])return levels[0];if(hz>=centers[centers.length-1])return levels[levels.length-1];
+        int i=0;while(i<centers.length-2&&hz>centers[i+1])i++;
+        double fraction=Math.log(hz/centers[i])/Math.log(centers[i+1]/centers[i]);return (float)(levels[i]+fraction*(levels[i+1]-levels[i]));
+    }
+    private void applyDraft(){
+        if(!prefs.getBoolean("eqDraftPending",false))return;
+        float[] draft=new float[REF.length];for(int i=0;i<draft.length;i++)draft[i]=prefs.getFloat("eqDraft_"+Math.round(REF[i]),0);
+        SharedPreferences.Editor editor=prefs.edit();for(float hz:frequencies)editor.putFloat("eqBand_"+Math.round(hz),Math.max(min,Math.min(max,interpolate(REF,draft,hz))));editor.putBoolean("eqDraftPending",false).apply();
+    }
+    private void capabilities(Equalizer eq){short count=eq.getNumberOfBands();if(count<1||count>32)throw new IllegalStateException("Unsupported band count");float[] centers=new float[count];short[] range=eq.getBandLevelRange();int low=range[0]/100,high=range[1]/100;if(high<low)throw new IllegalStateException("Invalid gain range");for(short b=0;b<count;b++){centers[b]=eq.getCenterFreq(b)/1000f;if(centers[b]<=0)throw new IllegalStateException("Invalid center frequency");}min=low;max=high;frequencies=centers;applyDraft();}
     synchronized void attach(int session){
         close();if(session<=0)return;
         try{
@@ -31,7 +43,16 @@ final class NativeEq {
     }
     float level(int band){if(frequencies==null||band>=frequencies.length)return 0;int p=preset();float result;if(p==6)result=prefs.getFloat("eqBand_"+Math.round(frequencies[band]),0);else{float hz=frequencies[band];float[] c=CURVES[p];if(hz<=REF[0])result=c[0];else if(hz>=REF[7])result=c[7];else{int i=0;while(i<6&&hz>REF[i+1])i++;double t=Math.log(hz/REF[i])/Math.log(REF[i+1]/REF[i]);result=(float)(c[i]+t*(c[i+1]-c[i]));}}return Math.max(min,Math.min(max,result));}
     void setPreset(int preset){prefs.edit().putInt("eqPreset",preset).apply();apply();}
-    void setCustom(int band,float gain){if(frequencies==null||band<0||band>=frequencies.length)return;float[] levels=new float[frequencies.length];for(int i=0;i<levels.length;i++)levels[i]=level(i);levels[band]=gain;SharedPreferences.Editor e=prefs.edit().putInt("eqPreset",6);for(int i=0;i<levels.length;i++)e.putFloat("eqBand_"+Math.round(frequencies[i]),levels[i]);e.apply();apply();}
+    void setCustom(int band,float gain){
+        float[] centers=editorFrequencies();if(band<0||band>=centers.length)return;
+        gain=Math.max(min,Math.min(max,gain));
+        if(frequencies==null){prefs.edit().putInt("eqPreset",6).putFloat("eqDraft_"+Math.round(centers[band]),gain).putBoolean("eqDraftPending",true).apply();return;}
+        float[] levels=new float[centers.length];for(int i=0;i<levels.length;i++)levels[i]=level(i);levels[band]=gain;
+        SharedPreferences.Editor editor=prefs.edit().putInt("eqPreset",6);
+        for(int i=0;i<levels.length;i++)editor.putFloat("eqBand_"+Math.round(centers[i]),levels[i]);
+        for(float hz:REF)editor.putFloat("eqDraft_"+Math.round(hz),interpolate(centers,levels,hz));
+        editor.putBoolean("eqDraftPending",false).apply();apply();
+    }
     synchronized boolean apply(){
         if(effect==null||frequencies==null)return false;
         try{

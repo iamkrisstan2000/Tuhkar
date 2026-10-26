@@ -29,6 +29,13 @@ final class PlaybackQueue<T> {
     void setShuffle(boolean enabled,T current){shuffled=enabled;rebuild(current);}
     private void rebuild(T current){order.clear();order.addAll(original);if(shuffled&&order.size()>1){T anchor=null;int index=indexOf(current);if(index>=0)anchor=order.remove(index);Collections.shuffle(order,random);if(anchor!=null)order.add(0,anchor);}}
     private int indexOf(T current){if(current==null)return -1;String id=key.apply(current);for(int i=0;i<order.size();i++)if(Objects.equals(id,key.apply(order.get(i))))return i;return -1;}
+    T peekNext(T current){
+        int index=indexOf(current);if(index<0||order.isEmpty())return null;
+        if(repeat==ONE)return order.get(index);
+        if(index+1<order.size())return order.get(index+1);
+        // Do not mutate/guess the next shuffled cycle while preloading.
+        return repeat==ALL&&!shuffled?order.get(0):null;
+    }
     T step(T current,int direction,boolean automatic){
         if(order.isEmpty())return null;int index=indexOf(current);if(automatic&&repeat==ONE&&index>=0)return order.get(index);
         int delta=direction<0?-1:1;int target=index<0?(delta>0?0:order.size()-1):index+delta;

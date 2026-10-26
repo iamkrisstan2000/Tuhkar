@@ -21,6 +21,8 @@ public final class PlaybackService extends Service {
     final LocalBinder binder=new LocalBinder();
     final PlaybackQueue<MainActivity.Item> queue=new PlaybackQueue<>(item->item.url);
     NativeEq equalizer;
+    NativeReverb reverb;
+    MusicCrossfade crossfade;
     MediaPlayer player;
     MainActivity.Item current;
     boolean prepared,playing,isVideo,foreground;
@@ -35,7 +37,7 @@ public final class PlaybackService extends Service {
     @Override public void onCreate(){
         super.onCreate();
         android.content.SharedPreferences prefs=getSharedPreferences("luma",0);
-        equalizer=new NativeEq(prefs);queue.setRepeatMode(prefs.getInt("repeatMode",0));queue.setShuffle(prefs.getBoolean("shuffle",false),null);
+        equalizer=new NativeEq(prefs);reverb=new NativeReverb(prefs);crossfade=new MusicCrossfade(this,prefs);queue.setRepeatMode(prefs.getInt("repeatMode",0));queue.setShuffle(prefs.getBoolean("shuffle",false),null);
         audio=(AudioManager)getSystemService(AUDIO_SERVICE);
         focus=new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()).setOnAudioFocusChangeListener(change->{if(change<0)pause();},main).build();
         ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(new NotificationChannel(CHANNEL,"Media playback",NotificationManager.IMPORTANCE_LOW));
@@ -82,7 +84,7 @@ public final class PlaybackService extends Service {
     long duration(){if(player!=null&&prepared&&!live())try{return Math.max(0,player.getDuration());}catch(Exception ignored){}return 0;}
     long position(){if(player!=null&&prepared)try{return Math.max(0,player.getCurrentPosition());}catch(Exception ignored){}return 0;}
     boolean live(){return current!=null&&(current.kind.equals("radio")||current.kind.equals("tv"));}
-    void seekTo(long value){long duration=duration();if(duration<=0)return;try{player.seekTo((int)Math.max(0,Math.min(duration,value)));publish();}catch(Exception ignored){}}
+    void seekTo(long value){if(crossfade!=null)crossfade.cancel();long duration=duration();if(duration<=0)return;try{player.seekTo((int)Math.max(0,Math.min(duration,value)));publish();}catch(Exception ignored){}}
     void publish(){
         if(session!=null){
             long duration=duration(),actions=PlaybackState.ACTION_PLAY|PlaybackState.ACTION_PAUSE|PlaybackState.ACTION_PLAY_PAUSE|PlaybackState.ACTION_STOP|PlaybackState.ACTION_SKIP_TO_NEXT|PlaybackState.ACTION_SKIP_TO_PREVIOUS;
@@ -92,6 +94,7 @@ public final class PlaybackService extends Service {
             session.setPlaybackState(new PlaybackState.Builder().setActions(actions).setState(state,position(),playing?1f:0f,SystemClock.elapsedRealtime()).build());session.setActive(current!=null);
             if(current!=null)try{((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(NOTIFICATION,notification());}catch(Exception ignored){}
         }
+        if(crossfade!=null)crossfade.sync();
         if(listener!=null)listener.run();
     }
     void selectPaused(MainActivity.Item item){if(item==null)return;releasePlayer();current=item;isVideo=item.kind.equals("video")||item.kind.equals("tv");playing=false;status="Paused";demote();publish();}
@@ -105,18 +108,26 @@ public final class PlaybackService extends Service {
             MediaPlayer p=new MediaPlayer();player=p;
             p.setWakeMode(this,PowerManager.PARTIAL_WAKE_LOCK);
             p.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(isVideo?AudioAttributes.CONTENT_TYPE_MOVIE:AudioAttributes.CONTENT_TYPE_MUSIC).build());
-            p.setOnVideoSizeChangedListener((mp,w,h)->{if(mp==player)publish();});
-            p.setOnPreparedListener(mp->{if(mp!=player)return;prepared=true;try{mp.start();playing=true;equalizer.attach(mp.getAudioSessionId());status="Playing";publish();}catch(Exception e){fail("Unable to start playback");}});
-            p.setOnCompletionListener(mp->{if(mp!=player)return;playing=false;MainActivity.Item following=null;if(!live())following=queue.step(current,1,true);if(following!=null){play(following);return;}status="Finished";audio.abandonAudioFocusRequest(focus);demote();publish();});
-            p.setOnErrorListener((mp,what,extra)->{if(mp==player)fail("Can't play. Offline, restricted, or unsupported media.");return true;});
-            p.setOnInfoListener((mp,what,extra)->{if(mp==player){if(what==MediaPlayer.MEDIA_INFO_BUFFERING_START)status="Buffering…";else if(what==MediaPlayer.MEDIA_INFO_BUFFERING_END)status=playing?"Playing":"Paused";publish();}return false;});
-            p.setOnSeekCompleteListener(mp->{if(mp==player)publish();});
+            watchPlayer(p);
+            p.setOnPreparedListener(mp->{if(mp!=player)return;prepared=true;try{mp.start();playing=true;equalizer.attach(mp.getAudioSessionId());reverb.apply(mp,current!=null&&current.kind.equals("music"));status="Playing";publish();}catch(Exception e){fail("Unable to start playback");}});
             publish();p.setDataSource(this,Uri.parse(item.url));p.prepareAsync();
             main.postDelayed(()->{if(player==p&&!prepared)fail("Connection timed out. Try another item.");},30000);
         }catch(Exception e){fail("Unable to open media. Check access or URL.");}
     }
+    void watchPlayer(MediaPlayer p){
+            p.setOnVideoSizeChangedListener((mp,w,h)->{if(mp==player)publish();});
+            p.setOnCompletionListener(mp->{if(mp!=player)return;playing=false;MainActivity.Item following=null;if(!live())following=queue.step(current,1,true);if(following!=null){play(following);return;}status="Finished";audio.abandonAudioFocusRequest(focus);demote();publish();});
+            p.setOnErrorListener((mp,what,extra)->{if(mp==player){if(crossfade!=null&&crossfade.recover(mp))return true;fail("Can't play. Offline, restricted, or unsupported media.");}return true;});
+            p.setOnInfoListener((mp,what,extra)->{if(mp==player){if(what==MediaPlayer.MEDIA_INFO_BUFFERING_START)status="Buffering…";else if(what==MediaPlayer.MEDIA_INFO_BUFFERING_END)status=playing?"Playing":"Paused";publish();}return false;});
+            p.setOnSeekCompleteListener(mp->{if(mp==player)publish();});
+    }
+    void adoptCrossfade(MediaPlayer incoming,MainActivity.Item item,NativeEq incomingEq){
+        player=incoming;current=item;equalizer=incomingEq;prepared=true;playing=true;isVideo=false;status="Playing";watchPlayer(incoming);publish();
+    }
+    void applyAudioEnhancements(){if(reverb!=null)reverb.apply(player,current!=null&&"music".equals(current.kind));if(crossfade!=null){crossfade.applyReverb();crossfade.settingsChanged();}}
     private void fail(String message){releasePlayer();status=message;demote();publish();}
     void pause(){
+        if(crossfade!=null)crossfade.cancel();
         if(player!=null&&!prepared)releasePlayer();
         if(player!=null&&prepared)try{player.pause();}catch(Exception ignored){}
         playing=false;status="Paused";audio.abandonAudioFocusRequest(focus);demote();publish();
@@ -132,6 +143,7 @@ public final class PlaybackService extends Service {
     void stopPlayback(){releasePlayer();current=null;isVideo=false;status="Playback stopped";queue.clear();publish();stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).cancel(NOTIFICATION);stopSelf();}
     private void releasePlayer(){
         main.removeCallbacksAndMessages(null);
+        if(crossfade!=null)crossfade.reset();if(reverb!=null)reverb.close();
         if(equalizer!=null)equalizer.close();
         if(player!=null){try{player.setOnErrorListener(null);player.setOnPreparedListener(null);player.setOnCompletionListener(null);player.setOnInfoListener(null);player.setOnSeekCompleteListener(null);player.setOnVideoSizeChangedListener(null);player.release();}catch(Exception ignored){}player=null;}
         prepared=false;playing=false;if(audio!=null&&focus!=null)audio.abandonAudioFocusRequest(focus);

@@ -75,18 +75,17 @@ public class MainActivity extends Activity {
     View surface,attachedVideoView;
     MediaPlayer attachedVideoPlayer;
     Surface attachedVideoSurface;
+    final RoundedVideoView.RetainedOutput videoOutput=new RoundedVideoView.RetainedOutput();
     ItemAdapter adapter;
     MediaPlayer player;
-    AudioManager audio;
 
     Item current;
     PlaybackQueue<Item> queue = new PlaybackQueue<>(item->item.url);
     boolean prepared, playing, isVideo, dragging, dark, landscape, showingSaved, destroyed;
     int tab=0, generation=0, bg, pageBottom, normalBg, panel, ink, muted, accent, accentInk, line;
-    String query="", country="ph", status="Your library, beautifully simple.", sourceStatus="";
+    String query="", country="ph", fmCountry="all", status="Your library, beautifully simple.", sourceStatus="";
     Runnable pendingSearch;
     final String[] titles={"Music", "Radio", "Videos", "TV"};
-    final String[] icons={"♫", "◉", "▶", "▣"};
 
     static class Item implements MediaOrder.Entry {
         String title, detail, url, kind;
@@ -115,7 +114,7 @@ public class MainActivity extends Activity {
     };
     void syncPlayback(boolean rebuild){
         if(playback==null||destroyed)return;
-        boolean previousVideo=isVideo;
+        boolean previousVideo=isVideo;equalizer=playback.equalizer;
         player=playback.player;current=playback.current;prepared=playback.prepared;playing=playback.playing;isVideo=playback.isVideo;status=playback.status;
         if(pendingNowPlaying){pendingNowPlaying=false;if(current!=null&&!tvMode){expanded=true;settingsOpen=false;rebuild=true;}}
         if(tvMode&&(current==null||!current.kind.equals("tv"))){exitTV();return;}
@@ -148,7 +147,7 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
         pendingNowPlaying=getIntent().getBooleanExtra("openNowPlaying",false);
-        prefs=getSharedPreferences("luma",0);
+        prefs=getSharedPreferences("luma",0);fmCountry=RadioDirectory.normalize(prefs.getString("fmCountry","all"));
         boolean upgraded=false;try{android.content.pm.PackageInfo info=getPackageManager().getPackageInfo(getPackageName(),0);upgraded=info.lastUpdateTime-info.firstInstallTime>1000;}catch(Exception ignored){}
         boolean existing=upgraded||!prefs.getAll().isEmpty();
         setupOpen=MediaAccessPolicy.needsSetup(prefs.getBoolean("setupComplete",false),prefs.getBoolean("setupStarted",false),existing);
@@ -159,16 +158,15 @@ public class MainActivity extends Activity {
         equalizer=new NativeEq(prefs);
         artwork=new ArtworkLoader(this,prefs);
         reactiveGlow=new AudioReactiveGlow(new AudioReactiveGlow.Listener(){public void energy(float low,float mid,float high){glowUnavailable=false;glowLow=AudioGlowMath.clamp(low);glowMid=AudioGlowMath.clamp(mid);glowHigh=AudioGlowMath.clamp(high);for(DiscView view:new ArrayList<>(discViews))if(current!=null&&current.url.equals(view.mediaUrl)&&view.isShown())view.energy(glowLow,glowMid,glowHigh);}public void unavailable(){glowUnavailable=true;clearDiscEnergy();}});
-        if(state!=null){tab=state.getInt("tab",0); query=state.getString("query","");country=state.getString("country","ph");settingsOpen=state.getBoolean("settings",false);settingsScrollY=state.getInt("settingsScrollY",0);settingsAnchor=state.getString("settingsAnchor",null);settingsAnchorOffset=state.getInt("settingsAnchorOffset",0);returningFromAccessSettings=state.getBoolean("returningFromAccessSettings",false);}
+        if(state!=null){tab=state.getInt("tab",0); query=state.getString("query","");country=state.getString("country","ph");fmCountry=RadioDirectory.normalize(state.getString("fmCountry",fmCountry));settingsOpen=state.getBoolean("settings",false);settingsScrollY=state.getInt("settingsScrollY",0);settingsAnchor=state.getString("settingsAnchor",null);settingsAnchorOffset=state.getInt("settingsAnchorOffset",0);returningFromAccessSettings=state.getBoolean("returningFromAccessSettings",false);}
         font=Typeface.createFromAsset(getAssets(),"Manrope.ttf");
-        audio=(AudioManager)getSystemService(AUDIO_SERVICE);
         loadSaved();
         render();
         if(!setupOpen){if(tab==0||tab==2)loadLocal();else loadOnline();}
         main.post(ticker);
     }
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);pendingNowPlaying=intent.getBooleanExtra("openNowPlaying",false);if(playback!=null)syncPlayback(true);}
-    @Override public void onSaveInstanceState(Bundle b){super.onSaveInstanceState(b);rememberSettingsScroll();b.putInt("settingsScrollY",settingsScrollY);b.putString("settingsAnchor",settingsAnchor);b.putInt("settingsAnchorOffset",settingsAnchorOffset);b.putInt("tab",tab);b.putString("query",query);b.putString("country",country);b.putBoolean("settings",settingsOpen);b.putBoolean("returningFromAccessSettings",returningFromAccessSettings);}
+    @Override public void onSaveInstanceState(Bundle b){super.onSaveInstanceState(b);rememberSettingsScroll();b.putInt("settingsScrollY",settingsScrollY);b.putString("settingsAnchor",settingsAnchor);b.putInt("settingsAnchorOffset",settingsAnchorOffset);b.putInt("tab",tab);b.putString("query",query);b.putString("country",country);b.putString("fmCountry",fmCountry);b.putBoolean("settings",settingsOpen);b.putBoolean("returningFromAccessSettings",returningFromAccessSettings);}
     int dp(float v){return (int)(v*getResources().getDisplayMetrics().density+.5f);}
     void colors(){
         dark=(getResources().getConfiguration().uiMode&Configuration.UI_MODE_NIGHT_MASK)==Configuration.UI_MODE_NIGHT_YES;
@@ -184,15 +182,16 @@ public class MainActivity extends Activity {
     }
     double channel(int value){double v=value/255.0;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4);}
     GradientDrawable round(int color,int radius){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(radius));return d;}
-    TextView text(String s,int sp,int color){TextView v=new TextView(this);v.setText(s);v.setTextSize(sp);v.setTextColor(color);v.setFontFeatureSettings("kern");v.setTypeface(font);return v;}
+    TextView text(String s,int sp,int color){TextView v=new TextView(this);v.setText(s);v.setTextSize(sp);v.setTextColor(color);v.setFontFeatureSettings("kern");v.setTypeface(font);if(settingsOpen&&!setupOpen){v.setFontVariationSettings("'wght' 500");if(color==muted){v.setTextSize(Math.max(13,sp));v.setTextColor(SurfacePalette.mix(muted,ink,.25f));}}return v;}
+    TextView spacedSettingsNote(String label,int sp,int color){TextView note=text(label,sp,color);note.setPadding(0,dp(6),0,0);return note;}
     LinearLayout column(){LinearLayout l=new LinearLayout(this);l.setOrientation(1);return l;}
     LinearLayout row(){LinearLayout l=new LinearLayout(this);l.setOrientation(0);l.setGravity(Gravity.CENTER_VERTICAL);return l;}
     void padding(View v,int x,int y){v.setPadding(dp(x),dp(y),dp(x),dp(y));}
     Button button(String label,Runnable r){Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setTextSize(12);b.setTypeface(font);b.setTextColor(ink);b.setBackground(round(panel,16));b.setMinHeight(dp(48));b.setMinimumHeight(dp(48));b.setStateListAnimator(null);b.setMinWidth(0);b.setMinimumWidth(0);padding(b,12,1);b.setOnClickListener(v->r.run());return b;}
     ImageButton toolIcon(int kind,String label,Runnable action){ImageButton b=new ImageButton(this);b.setImageDrawable(new FluentIcon(kind,ink));b.setScaleType(ImageView.ScaleType.CENTER_INSIDE);b.setBackground(round(panel,16));padding(b,12,12);b.setContentDescription(label);b.setTooltipText(label);b.setOnClickListener(v->action.run());return b;}
     int selectedIconColor(){double foreground=.2126*channel(Color.red(accent))+.7152*channel(Color.green(accent))+.0722*channel(Color.blue(accent)),background=.2126*channel(Color.red(panel))+.7152*channel(Color.green(panel))+.0722*channel(Color.blue(panel));return (Math.max(foreground,background)+.05)/(Math.min(foreground,background)+.05)>=3?accent:ink;}
-    void addWeight(LinearLayout l,View v){l.addView(v,new LinearLayout.LayoutParams(0,-2,1));}
     GradientDrawable mediaSelector(){
+        if("lambo".equals(accentStyle())||"tuhkar".equals(accentStyle())){int orange=AccentStyle.hoverAccent(accentStyle(),accent);GradientDrawable selected=round(LightSurfaceStyle.selectorFill(panel,orange,ink,muted),14);selected.setStroke(dp(1),orange);return selected;}
         if(dark)return round(normalBg,14);
         int stable=AccentStyle.base(accentStyle(),deviceAccent);
         GradientDrawable selected=round(LightSurfaceStyle.selectorFill(panel,stable,ink,muted),14);
@@ -211,9 +210,10 @@ public class MainActivity extends Activity {
     void addRemoteHeaderTools(LinearLayout header){
         if(tab!=1&&tab!=3)return;
         ImageButton url=toolIcon(14,tab==1?"Add radio URL":"Add TV URL",()->addUrl());url.setBackgroundColor(Color.TRANSPARENT);url.setStateListAnimator(null);padding(url,14,14);header.addView(url,new LinearLayout.LayoutParams(dp(48),dp(48)));
-        if(tab==3){ImageButton region=toolIcon(15,"Region: "+country.toUpperCase(Locale.ROOT),()->chooseCountry());region.setBackgroundColor(Color.TRANSPARENT);region.setStateListAnimator(null);padding(region,14,14);header.addView(region,new LinearLayout.LayoutParams(dp(48),dp(48)));}
+        ImageButton region=toolIcon(15,"Region: "+(tab==1?RadioDirectory.label(fmCountry):country.toUpperCase(Locale.ROOT)),()->chooseCountry());region.setBackgroundColor(Color.TRANSPARENT);region.setStateListAnimator(null);padding(region,14,14);header.addView(region,new LinearLayout.LayoutParams(dp(48),dp(48)));
     }
     void render(){
+        videoOutput.setRetaining(appVisible&&isVideo&&current!=null&&!settingsOpen&&!setupOpen&&!tvMode&&!resetInProgress);
         rememberSettingsScroll();settingsScroll=null;settingsPage=null;
         cancelPlayHolds();stopDiscAnimation();accentSwitches.clear();setupPrimary=null;colors();scheduleAccentWave();setTheme(dark?com.luma.media.R.style.DarkAppTheme:com.luma.media.R.style.AppTheme);root=column();applyPageBackground();setContentView(root);movingArt.clear();
         // Android 15 enforces edge-to-edge: apply the actual system bar and keyboard insets.
@@ -242,8 +242,8 @@ public class MainActivity extends Activity {
         ImageButton favorite=new ImageButton(this);favoriteButton=favorite;favorite.setImageDrawable(new FluentIcon(16,showingSaved?selectedIconColor():muted));favorite.setScaleType(ImageView.ScaleType.CENTER_INSIDE);favorite.setBackgroundColor(Color.TRANSPARENT);favorite.setStateListAnimator(null);padding(favorite,12,12);favorite.setSelected(showingSaved);favorite.setContentDescription(showingSaved?"Saved filter on. Show all media":"Show saved media");favorite.setTooltipText(showingSaved?"Show all media":"Show saved media");favorite.setOnClickListener(v->{showingSaved=!showingSaved;render();refreshList();});LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(dp(48),dp(48));header.addView(favorite,fp);
         ImageButton sort=toolIcon(18,"Sort media",()->showSort());sortButton=sort;sort.setBackgroundColor(Color.TRANSPARENT);padding(sort,14,14);sort.setTooltipText("Sort: "+sortNames()[Math.max(0,Math.min(3,prefs.getInt("sortOrder",3)))]);header.addView(sort,new LinearLayout.LayoutParams(dp(48),dp(48)));library.addView(header,new LinearLayout.LayoutParams(-1,-2));content.addView(library,new LinearLayout.LayoutParams(-1,0,1));
         buildLibrary(library);
-        playerBox=column();playerBox.setPadding(dp(landscape?12:0),dp(2),dp(landscape?12:0),0);playerBox.setOnClickListener(v->openExpanded());playerBox.setContentDescription((current==null?"Player":current.title)+". "+status+". Tap to open Now Playing.");playerBox.setBackgroundColor(Color.TRANSPARENT);if(landscape){LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(dp(Math.max(180,Math.min(320,getResources().getConfiguration().screenWidthDp*.34f))),-1);body.addView(playerBox,pp);}else{LinearLayout.LayoutParams miniParams=new LinearLayout.LayoutParams(-1,-2);miniParams.setMargins(dp(16),0,dp(16),0);root.addView(playerBox,miniParams);}
-        videoBox=column();LinearLayout.LayoutParams videoParams=new LinearLayout.LayoutParams(-1,-2);videoParams.bottomMargin=dp(12);playerBox.addView(videoBox,videoParams);videoBox.setGravity(Gravity.CENTER);videoBox.setBackground(round(Color.BLACK,12));videoBox.setClipToOutline(true);addRoundedPicture(videoBox,dp(landscape?150:Math.min(190,getResources().getConfiguration().screenHeightDp*.24f)));surface.setContentDescription("TV preview. Double-tap for landscape fullscreen.");videoBox.setVisibility(isVideo&&current!=null?View.VISIBLE:View.GONE);
+        playerBox=column();playerBox.setPadding(dp(landscape?12:0),dp(2),dp(landscape?12:0),0);playerBox.setOnClickListener(v->openExpanded());playerBox.setContentDescription((current==null?"Player":current.title)+". "+status+". Tap to open Now Playing.");playerBox.setBackgroundColor(Color.TRANSPARENT);if(landscape){playerBox.setGravity(Gravity.CENTER_VERTICAL);playerBox.setPadding(dp(12),dp(12),dp(12),dp(12));LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(dp(Math.max(180,Math.min(320,getResources().getConfiguration().screenWidthDp*.34f))),-1);body.addView(playerBox,pp);}else{LinearLayout.LayoutParams miniParams=new LinearLayout.LayoutParams(-1,-2);miniParams.setMargins(dp(16),0,dp(16),0);root.addView(playerBox,miniParams);}
+        videoBox=column();LinearLayout.LayoutParams videoParams=new LinearLayout.LayoutParams(-1,-2);videoParams.bottomMargin=dp(12);playerBox.addView(videoBox,videoParams);videoBox.setGravity(Gravity.CENTER);videoBox.setBackground(round(Color.BLACK,12));videoBox.setClipToOutline(true);addRoundedPicture(videoBox,dp(landscape?150:Math.min(190,getResources().getConfiguration().screenHeightDp*.24f)));surface.setContentDescription("TV preview. Double-tap for landscape fullscreen.");videoBox.setVisibility(inlineVideoVisible()?View.VISIBLE:View.GONE);
         installInlineVideoGesture();
         videoBox.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{if(!tvMode&&player!=null&&prepared&&isVideo)try{fitVideo(player.getVideoWidth(),player.getVideoHeight());}catch(Exception ignored){}});
         addPlaybackControls(playerBox,false);
@@ -305,21 +305,41 @@ public class MainActivity extends Activity {
                 TextView label=text((selected?"✓ ":"")+layouts[mode],12,ink);label.setMinHeight(dp(40));label.setGravity(Gravity.CENTER_VERTICAL);label.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);if(selected)bold(label);option.addView(label);
             }
         }
-        styles.addView(text("Previews are illustrative. Larger text and smaller screens fit fewer items.",11,muted));
+        styles.addView(spacedSettingsNote("Previews are illustrative. Larger text and smaller screens fit fewer items.",11,muted));
     }
     String equalizerUiState(){return prepared+":"+equalizer.enabled()+":"+java.util.Arrays.hashCode(equalizer.frequencies)+":"+equalizer.min+":"+equalizer.max+":"+(equalizer.effect!=null)+":"+equalizer.error;}
+    void audioEnhancementsSettings(LinearLayout page){
+        LinearLayout card=settingsCard(page,"Audio Enhancements");equalizerSettings(card);
+        View divider=new View(this);divider.setBackgroundColor(line);LinearLayout.LayoutParams dividerParams=new LinearLayout.LayoutParams(-1,dp(1));dividerParams.topMargin=dp(16);dividerParams.bottomMargin=dp(12);card.addView(divider,dividerParams);
+        LinearLayout knobs=row();card.addView(knobs);TextView status=spacedSettingsNote("Music only · Crossfade up to 2 seconds. Reverb depends on device support.",11,muted);
+        for(int i=0;i<2;i++){
+            final boolean fade=i==1;LinearLayout option=column();option.setGravity(Gravity.CENTER);knobs.addView(option,new LinearLayout.LayoutParams(0,-2,1));
+            TextView label=text(fade?"Crossfade":"Reverb",14,ink);semibold(label);label.setGravity(Gravity.CENTER);option.addView(label);
+            MinimalKnob knob=new MinimalKnob(this,fade?"Crossfade, music only":"Reverb amount, music only",fade?2000:100,fade?100:1,prefs.getInt(fade?"crossfadeMs":"reverbAmount",0),fade,accent,ink,muted,font);
+            option.addView(knob,new LinearLayout.LayoutParams(-1,dp(116)));
+            knob.listener=value->{prefs.edit().putInt(fade?"crossfadeMs":"reverbAmount",value).apply();if(playback!=null){playback.applyAudioEnhancements();status.setText(playback.reverb.error.isEmpty()?"Music only · Crossfade up to 2 seconds. Reverb depends on device support.":playback.reverb.error);}};
+        }
+        card.addView(status);
+    }
     void equalizerSettings(LinearLayout page){
-        LinearLayout card=settingsCard(page,"Equalizer");Switch enabled=new Switch(this);enabled.setText("Enable equalizer");enabled.setTextColor(ink);enabled.setTypeface(font);enabled.setChecked(equalizer.enabled());tintSettingsSwitch(enabled);enabled.setOnCheckedChangeListener((b,on)->{prefs.edit().putBoolean("eqEnabled",on).apply();if(player!=null&&prepared)equalizer.attach(player.getAudioSessionId());else if(!on)equalizer.close();render();});card.addView(enabled);
+        LinearLayout card=column();page.addView(card);Switch enabled=new Switch(this);enabled.setText("Equalizer");enabled.setTextColor(ink);semibold(enabled);enabled.setChecked(equalizer.enabled());tintSettingsSwitch(enabled);enabled.setOnCheckedChangeListener((b,on)->{prefs.edit().putBoolean("eqEnabled",on).apply();if(player!=null&&prepared)equalizer.attach(player.getAudioSessionId());else if(!on)equalizer.close();render();});card.addView(enabled);
         eqSettingsState=equalizerUiState();
-        Button presetSelect=button(NativeEq.PRESETS[equalizer.preset()]+" ▾",()->dialog("Sound presets").setSingleChoiceItems(NativeEq.PRESETS,equalizer.preset(),(d,w)->{equalizer.setPreset(w);d.dismiss();render();}).setNegativeButton("Cancel",null).show());card.addView(presetSelect);
-        if(!prepared||player==null)card.addView(text("Choose your preset now. Start a song or station to detect this phone's EQ bands and apply your settings.",12,muted));
+        Button presetSelect=button("Preset · "+NativeEq.PRESETS[equalizer.preset()]+" ▾",()->dialog("Sound presets").setSingleChoiceItems(NativeEq.PRESETS,equalizer.preset(),(d,w)->{equalizer.setPreset(w);d.dismiss();render();}).setNegativeButton("Cancel",null).show());semibold(presetSelect);presetSelect.setGravity(Gravity.CENTER_VERTICAL|Gravity.LEFT);presetSelect.setBackground(round(normalBg,14));padding(presetSelect,14,2);card.addView(presetSelect);
+        if(!prepared||player==null)card.addView(spacedSettingsNote("Choose your preset now. Start a song or station to detect this phone's EQ bands and apply your settings.",12,muted));
         else if(!equalizer.error.isEmpty()){
-            card.addView(text(equalizer.error,12,muted));card.addView(button("Reconnect equalizer",()->{if(player!=null&&prepared){equalizer.attach(player.getAudioSessionId());render();}}));
-        }else card.addView(text(equalizer.enabled()?"Equalizer connected to Tuhkar playback.":"Equalizer is off. Your preset will apply when enabled.",12,muted));
-        if(equalizer.frequencies==null)return;
-        int bands=equalizer.frequencies.length;card.addView(text(bands+" EQ bands on this phone",12,muted));
-        for(int band=0;band<bands;band++){final int b=band;float hz=equalizer.frequencies[band];String frequency=hz>=1000?String.format(Locale.ROOT,"%.1f kHz",hz/1000):Math.round(hz)+" Hz";TextView value=text(frequency+" · "+String.format(Locale.ROOT,"%+.1f dB",equalizer.level(b)),12,ink);card.addView(value);SeekBar slider=new SeekBar(this);slider.setMax(equalizer.max-equalizer.min);slider.setProgress(Math.round(equalizer.level(b))-equalizer.min);slider.setContentDescription(frequency+" equalizer gain");slider.setProgressTintList(android.content.res.ColorStateList.valueOf(accent));slider.setThumbTintList(android.content.res.ColorStateList.valueOf(accent));card.addView(slider,new LinearLayout.LayoutParams(-1,dp(44)));slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar v){}public void onStopTrackingTouch(SeekBar v){}public void onProgressChanged(SeekBar v,int progress,boolean user){if(user){float gain=progress+equalizer.min;equalizer.setCustom(b,gain);presetSelect.setText("Custom ▾");value.setText(frequency+" · "+String.format(Locale.ROOT,"%+.1f dB",gain));}}});}
-        card.addView(text("Try a preset, then adjust the sliders. Keep boosts low to avoid distortion.",11,muted));
+            card.addView(spacedSettingsNote(equalizer.error,12,muted));card.addView(button("Reconnect equalizer",()->{if(player!=null&&prepared){equalizer.attach(player.getAudioSessionId());render();}}));
+        }else card.addView(spacedSettingsNote(equalizer.enabled()?"Equalizer connected to Tuhkar playback.":"Equalizer is off. Your preset will apply when enabled.",12,muted));
+        if(equalizer.preset()!=NativeEq.PRESETS.length-1)return;
+        float[] editBands=equalizer.editorFrequencies();
+        int bands=editBands.length;card.addView(text(equalizer.frequencies==null?"8 reference bands · mapped to your device when playback starts.":bands+" native bands",11,muted));
+        for(int band=0;band<bands;band++){
+            final int b=band;float hz=editBands[band];String frequency=hz>=1000?String.format(Locale.ROOT,"%.1f kHz",hz/1000):Math.round(hz)+" Hz";
+            LinearLayout bandRow=row();card.addView(bandRow);TextView label=text(frequency,11,muted);bandRow.addView(label,new LinearLayout.LayoutParams(dp(54),-2));
+            SeekBar slider=new SeekBar(this);slider.setMax(equalizer.max-equalizer.min);slider.setProgress(Math.round(equalizer.editorLevel(b))-equalizer.min);slider.setContentDescription(frequency+" equalizer gain");slider.setProgressTintList(android.content.res.ColorStateList.valueOf(accent));slider.setThumbTintList(android.content.res.ColorStateList.valueOf(accent));bandRow.addView(slider,new LinearLayout.LayoutParams(0,dp(48),1));
+            TextView value=text(String.format(Locale.ROOT,"%+.0f dB",equalizer.editorLevel(b)),11,ink);value.setGravity(Gravity.RIGHT);bandRow.addView(value,new LinearLayout.LayoutParams(dp(42),-2));
+            slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar v){}public void onStopTrackingTouch(SeekBar v){}public void onProgressChanged(SeekBar v,int progress,boolean user){if(user){float gain=progress+equalizer.min;equalizer.setCustom(b,gain);presetSelect.setText("Preset · Custom ▾");value.setText(String.format(Locale.ROOT,"%+.0f dB",gain));}}});
+        }
+        card.addView(text("Pick a preset or fine-tune. Large boosts may distort.",11,muted));
     }
 
     void notice(String s){sourceStatus=s;updateLibraryNotice();}
@@ -367,15 +387,15 @@ public class MainActivity extends Activity {
         });
     }
     String get(String url,int maxBytes)throws Exception{
-        HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();c.setConnectTimeout(12000);c.setReadTimeout(15000);c.setRequestProperty("User-Agent","Tuhkar/1.35 (Android)");
+        HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();c.setConnectTimeout(12000);c.setReadTimeout(15000);c.setRequestProperty("User-Agent","Tuhkar/1.1.0 (Android)");
         try{int code=c.getResponseCode();if(code!=200)throw new IOException("Server returned "+code);try(InputStream in=c.getInputStream();ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] buf=new byte[8192];int n,total=0;while((n=in.read(buf))!=-1){total+=n;if(total>maxBytes)throw new IOException("Directory exceeds safety limit");out.write(buf,0,n);}return out.toString("UTF-8");}}finally{c.disconnect();}
     }
     void loadOnline(){
-        final int token=++generation,target=tab;final String q=query, region=country;
+        final int token=++generation,target=tab;final String q=query, region=target==1?fmCountry:country;
         if(target!=1&&target!=3)return;notice("Connecting to public directory…");
         io.execute(()->{ArrayList<Item> result=new ArrayList<>();String error=null;
             try{
-                if(target==1){String path=q.trim().isEmpty()?"/json/stations/topclick/100":"/json/stations/search?limit=150&hidebroken=true&order=clickcount&reverse=true&name="+URLEncoder.encode(q.trim(),"UTF-8");String json=null;Exception last=null;
+                if(target==1){String path=RadioDirectory.path(q,region);String json=null;Exception last=null;
                     for(String host:new String[]{"https://de1.api.radio-browser.info","https://nl1.api.radio-browser.info","https://at1.api.radio-browser.info"}){try{json=get(host+path,2500000);break;}catch(Exception e){last=e;}}
                     if(json==null)throw last;JSONArray a=new JSONArray(json);for(int i=0;i<a.length();i++){JSONObject o=a.getJSONObject(i);String u=o.optString("url_resolved",o.optString("url"));if(validUrl(u))result.add(new Item(o.optString("name","Radio"),o.optString("country")+" · "+o.optString("codec")+" · "+o.optInt("bitrate")+" kbps",u,"radio").art(o.optString("favicon","")).type(o.optString("codec","radio")));}
                 }else {
@@ -385,14 +405,26 @@ public class MainActivity extends Activity {
                     String name="Channel",logoUrl="",detail="Public IPTV · "+region.toUpperCase(Locale.ROOT);try(BufferedReader reader=new BufferedReader(new StringReader(m3u))){String s;while((s=reader.readLine())!=null&&result.size()<3000){s=s.trim();if(s.startsWith("#EXTINF:")){int comma=s.lastIndexOf(',');name=comma>=0?s.substring(comma+1).trim():"Channel";java.util.regex.Matcher logoMatch=java.util.regex.Pattern.compile("tvg-logo=\"([^\"]*)\"").matcher(s);logoUrl=logoMatch.find()?logoMatch.group(1):"";}else if(validUrl(s))result.add(new Item(name,detail,s,"tv").art(logoUrl));}}
                 }
             }catch(Exception e){error="Directory unavailable. Check internet or try Refresh. Saved URLs remain available.";}
-            final String err=error;main.post(()->{if(destroyed||token!=generation)return;online.clear();online.addAll(result);notice(err!=null?err:(target==1?result.size()+" stations · search worldwide · Radio Browser":result.size()+" channels · "+region.toUpperCase(Locale.ROOT)+" · iptv-org")+" · availability varies");refreshList();});
+            final String err=error;main.post(()->{if(destroyed||token!=generation)return;online.clear();online.addAll(result);notice(err!=null?err:(target==1?result.size()+" stations · "+RadioDirectory.label(region)+" · Radio Browser":result.size()+" channels · "+region.toUpperCase(Locale.ROOT)+" · iptv-org")+" · availability varies");refreshList();});
         });
     }
     boolean validUrl(String u){return u!=null&&(u.startsWith("https://")||u.startsWith("http://"));}
     void chooseCountry(){
         String[] names={"Philippines","United States","United Kingdom","Canada","Australia","Germany","France","Spain","Italy","India","Japan","South Korea","Indonesia","Malaysia","Singapore","Thailand","Vietnam","Brazil","Mexico","South Africa","Other country code…"};
         String[] codes={"ph","us","uk","ca","au","de","fr","es","it","in","jp","kr","id","my","sg","th","vn","br","mx","za"};
-        dialog("Public TV directory · region").setItems(names,(d,w)->{if(w<codes.length){country=codes[w];render();loadOnline();}else{EditText input=new EditText(this);input.setHint("Two-letter code, e.g. nz");dialog("Country code").setView(input).setPositiveButton("Load",(dd,ww)->{String code=input.getText().toString().trim().toLowerCase(Locale.ROOT);if(code.matches("[a-z]{2}")){country=code;render();loadOnline();}else toast("Enter two letters.");}).setNegativeButton("Cancel",null).show();}}).show();
+        final boolean radio=tab==1;ArrayList<String> options=new ArrayList<>(java.util.Arrays.asList(names));if(radio)options.add(0,"Worldwide");
+        dialog(radio?"Public radio directory · region":"Public TV directory · region").setItems(options.toArray(new String[0]),(d,w)->{
+            int index=radio?w-1:w;
+            if(index<0){applyRegion(true,"all");return;}
+            if(index<codes.length){applyRegion(radio,codes[index]);return;}
+            EditText input=new EditText(this);input.setHint("Two-letter code, e.g. nz");dialog("Country code").setView(input).setPositiveButton("Load",(dd,ww)->{
+                String code=input.getText().toString().trim().toLowerCase(Locale.ROOT);if(code.matches("[a-z]{2}"))applyRegion(radio,code);else toast("Enter two letters.");
+            }).setNegativeButton("Cancel",null).show();
+        }).show();
+    }
+    void applyRegion(boolean radio,String code){
+        if(radio){fmCountry=RadioDirectory.normalize(code);prefs.edit().putString("fmCountry",fmCountry).apply();}else country=code;
+        if(pendingSearch!=null)main.removeCallbacks(pendingSearch);showingSaved=false;online.clear();render();loadOnline();
     }
     void addUrl(){
         LinearLayout form=column();padding(form,22,8);EditText name=new EditText(this);name.setHint("Station or channel name");name.setTextColor(ink);name.setHintTextColor(muted);EditText url=new EditText(this);url.setHint("https://… direct audio or HLS URL");url.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_URI);url.setTextColor(ink);url.setHintTextColor(muted);form.setBackgroundColor(normalBg);form.addView(name);form.addView(url);TextView help=text("Use a direct media URL, not a website, YouTube page, or playlist directory. Radio URLs are saved under Radio; video URLs under TV.",12,muted);form.addView(help);
@@ -465,10 +497,11 @@ public class MainActivity extends Activity {
         discUrl=current==null?"":current.url;if(current!=null){artwork.bind(disc,current,accent);configureDisc(disc,current);}syncDisc();
         LinearLayout controls=column();padding(controls,8,12);if(landscape){controls.setGravity(Gravity.CENTER_VERTICAL);layout.addView(controls,new LinearLayout.LayoutParams(0,-1,1));}else layout.addView(controls,new LinearLayout.LayoutParams(-1,-2));playerBox=controls;addPlaybackControls(controls,true);updatePlayer();
     }
-    void addRoundedPicture(LinearLayout host,int height){RoundedVideoView picture=new RoundedVideoView(this);surface=picture;host.addView(picture,new LinearLayout.LayoutParams(-1,height));picture.onOutputChanged(()->{if(surface==picture){attachVideoOutput();if(appVisible&&player!=null&&prepared)try{fitVideo(player.getVideoWidth(),player.getVideoHeight());}catch(Exception ignored){}}else if(picture.output()==null)detachVideoOutput(picture);});}
+    void addRoundedPicture(LinearLayout host,int height){RoundedVideoView picture=new RoundedVideoView(this,videoOutput);surface=picture;host.addView(picture,new LinearLayout.LayoutParams(-1,height));picture.onOutputChanged(()->{if(picture.output()==null){detachVideoOutput(picture);return;}if(surface==picture){attachVideoOutput();if(appVisible&&player!=null&&prepared)try{fitVideo(player.getVideoWidth(),player.getVideoHeight());}catch(Exception ignored){}}});}
     void clearVideoOutputCache(){attachedVideoView=null;attachedVideoPlayer=null;attachedVideoSurface=null;}
     void detachVideoOutput(View view){if(attachedVideoView!=view)return;if(attachedVideoPlayer!=null&&attachedVideoPlayer==player)try{player.setSurface(null);}catch(Exception ignored){}clearVideoOutputCache();}
-    void attachVideoOutput(){if(player==null||!isVideo||!appVisible||surface==null)return;try{Surface output=surface instanceof RoundedVideoView?((RoundedVideoView)surface).output():surface instanceof SurfaceView?((SurfaceView)surface).getHolder().getSurface():null;if(output!=null&&!output.isValid())output=null;if(attachedVideoPlayer==player&&attachedVideoView==surface&&attachedVideoSurface==output)return;if(surface instanceof SurfaceView){if(output!=null)player.setDisplay(((SurfaceView)surface).getHolder());else player.setSurface(null);}else player.setSurface(output);attachedVideoPlayer=player;attachedVideoView=surface;attachedVideoSurface=output;}catch(Exception ignored){clearVideoOutputCache();}}
+    boolean inlineVideoVisible(){return !settingsOpen&&!setupOpen&&current!=null&&isVideo;}
+    void attachVideoOutput(){if(player==null||!isVideo||!appVisible||surface==null||settingsOpen||setupOpen||(!tvMode&&!expanded&&!inlineVideoVisible()))return;try{Surface output=surface instanceof RoundedVideoView?((RoundedVideoView)surface).output():surface instanceof SurfaceView?((SurfaceView)surface).getHolder().getSurface():null;if(output!=null&&!output.isValid())output=null;if(output!=null&&attachedVideoPlayer==player&&attachedVideoSurface==output){attachedVideoView=surface;return;}if(attachedVideoPlayer==player&&attachedVideoView==surface&&attachedVideoSurface==output)return;if(surface instanceof SurfaceView){if(output!=null)player.setDisplay(((SurfaceView)surface).getHolder());else player.setSurface(null);}else player.setSurface(output);attachedVideoPlayer=player;attachedVideoView=surface;attachedVideoSurface=output;}catch(Exception ignored){clearVideoOutputCache();}}
     void renderVideoExpanded(){
         LinearLayout page=column();padding(page,16,8);root.addView(page,new LinearLayout.LayoutParams(-1,-1));LinearLayout top=row();top.addView(backButton(()->{expanded=false;render();}));TextView caption=text("Now playing",20,ink);bold(caption);padding(caption,12,4);top.addView(caption);page.addView(top);
         videoBox=column();videoBox.setGravity(Gravity.CENTER);videoBox.setBackground(round(Color.BLACK,12));videoBox.setClipToOutline(true);LinearLayout.LayoutParams pictureParams=new LinearLayout.LayoutParams(-1,0,1);pictureParams.bottomMargin=dp(12);page.addView(videoBox,pictureParams);addRoundedPicture(videoBox,-1);installInlineVideoGesture();
@@ -506,10 +539,10 @@ public class MainActivity extends Activity {
 
     void closeSettings(){settingsOpen=false;render();if(tab==0||tab==2)loadLocal();}
     LinearLayout settingsCard(LinearLayout parent,String title){LinearLayout card=column();padding(card,18,16);card.setBackground(round(panel,22));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=dp(14);parent.addView(card,lp);card.setTag("settings:"+title);TextView heading=text(title,18,ink);bold(heading);card.addView(heading);return card;}
-    void tintSettingsSwitch(Switch control){accentSwitches.add(control);
+    void tintSettingsSwitch(Switch control){accentSwitches.add(control);int switchTone=AccentStyle.switchAccent(accentStyle(),accent);
         int[][] states={new int[]{-android.R.attr.state_enabled},new int[]{android.R.attr.state_checked},new int[]{}};
-        control.setThumbTintList(new android.content.res.ColorStateList(states,new int[]{SurfacePalette.mix(panel,muted,.35f),accent,muted}));
-        control.setTrackTintList(new android.content.res.ColorStateList(states,new int[]{SurfacePalette.mix(panel,muted,.12f),SurfacePalette.mix(panel,accent,.48f),SurfacePalette.mix(panel,muted,.28f)}));
+        control.setThumbTintList(new android.content.res.ColorStateList(states,new int[]{SurfacePalette.mix(panel,muted,.35f),switchTone,muted}));
+        control.setTrackTintList(new android.content.res.ColorStateList(states,new int[]{SurfacePalette.mix(panel,muted,.12f),SurfacePalette.mix(panel,switchTone,.48f),SurfacePalette.mix(panel,muted,.28f)}));
         control.setMinimumHeight(dp(48));
     }
     void rememberSettingsScroll(){
@@ -535,15 +568,19 @@ public class MainActivity extends Activity {
         if(settingsFadePending){settingsFadePending=false;if(android.animation.ValueAnimator.areAnimatorsEnabled()){page.setAlpha(.97f);page.animate().alpha(1f).setDuration(140).start();}}
         LinearLayout top=row();top.addView(backButton(()->closeSettings()));TextView title=text("Settings",28,ink);bold(title);padding(title,14,4);top.addView(title,new LinearLayout.LayoutParams(0,-2,1));page.addView(top);
         TextView summary=text("Make this space yours.",13,muted);padding(summary,0,12);page.addView(summary);
-        librarySettings(page);discGlowSettings(page);equalizerSettings(page);mediaAccessSettings(page);
+        librarySettings(page);discGlowSettings(page);audioEnhancementsSettings(page);mediaAccessSettings(page);
         LinearLayout oled=settingsCard(page,"OLED mode");Switch black=new Switch(this);black.setText("Black background in dark mode");black.setTextColor(ink);black.setTypeface(font);black.setChecked(prefs.getBoolean("oled",false));tintSettingsSwitch(black);black.setOnCheckedChangeListener((b,on)->{prefs.edit().putBoolean("oled",on).apply();render();});oled.addView(black);TextView oledNote=text("Black background, colored cards. Follows your phone's theme.",12,muted);padding(oledNote,0,8);oled.addView(oledNote);
         accentSettings(page);
         LinearLayout art=settingsCard(page,"Artwork");Switch downloads=new Switch(this);downloads.setText("Download missing artwork");downloads.setTypeface(font);downloads.setTextColor(ink);downloads.setChecked(prefs.getBoolean("artDownloads",true));tintSettingsSwitch(downloads);downloads.setOnCheckedChangeListener((b,on)->prefs.edit().putBoolean("artDownloads",on).apply());art.addView(downloads);
         TextView privacy=text("Finds missing covers online. Titles and artists are shared with artwork services; your files stay on your phone. May use mobile data.",12,muted);padding(privacy,0,10);art.addView(privacy);
         art.addView(button("Clear artwork cache",()->dialog("Clear artwork cache?").setMessage("Remove saved covers? They can download again.").setPositiveButton("Clear",(d,w)->{artwork.clear();toast("Artwork cache clearing");}).setNegativeButton("Cancel",null).show()));
         LinearLayout resetCard=settingsCard(page,"Reset app");LinearLayout resetRow=row();resetRow.addView(text("Clear Tuhkar settings, saved items and cache. Your actual music/videos are never deleted.",12,muted),new LinearLayout.LayoutParams(0,-2,1));ImageButton reset=toolIcon(17,"Reset Tuhkar",()->confirmReset());reset.setImageDrawable(new FluentIcon(17,Color.parseColor(dark?"#FF6B6B":"#B3261E")));reset.setBackgroundColor(Color.TRANSPARENT);padding(reset,12,12);resetRow.addView(reset,new LinearLayout.LayoutParams(dp(48),dp(48)));resetCard.addView(resetRow);
-        LinearLayout info=settingsCard(page,"About");info.addView(text("Tuhkar v1.0.0 · by KnightWin",12,muted));info.addView(button("About & privacy",()->about()));
-        restoreSettingsScroll(scroll,page);
+        LinearLayout info=settingsCard(page,"About");LinearLayout aboutRow=row();aboutRow.addView(text("Tuhkar v1.1.0 · by KnightWin",12,muted),new LinearLayout.LayoutParams(0,-2,1));ImageButton aboutLogo=new ImageButton(this);aboutLogo.setImageResource(R.drawable.tuhkar_wordmark);aboutLogo.setScaleType(ImageView.ScaleType.FIT_CENTER);aboutLogo.setBackgroundColor(Color.TRANSPARENT);padding(aboutLogo,4,4);aboutLogo.setContentDescription("About and privacy");aboutLogo.setTooltipText("About and privacy");aboutLogo.setOnClickListener(v->about());aboutRow.addView(aboutLogo,new LinearLayout.LayoutParams(dp(112),dp(56)));info.addView(aboutRow);
+        styleSettingsSwitchText(page);restoreSettingsScroll(scroll,page);
+    }
+    void styleSettingsSwitchText(View view){
+        if(view instanceof Switch)((Switch)view).setFontVariationSettings("'wght' 500");
+        if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=0;i<group.getChildCount();i++)styleSettingsSwitchText(group.getChildAt(i));}
     }
     void beginSetup(){generation++;if(pendingSearch!=null)main.removeCallbacks(pendingSearch);expanded=false;settingsOpen=false;setupOpen=true;setupGo(0);}
     void setupGo(int step){setupStep=Math.max(0,Math.min(4,step));prefs.edit().putBoolean("setupStarted",true).putBoolean("setupComplete",false).putInt("setupFlowVersion",3).putInt("setupStep",setupStep).apply();render();}
@@ -573,13 +610,14 @@ public class MainActivity extends Activity {
     void setupBack(){if(setupStep==4)finishSetup(false);else if(setupStep!=2)setupGo(0);}
     void finishSetup(boolean streaming){prefs.edit().putBoolean("askedPlaybackNotifications",true).putBoolean("askedGlowPermission",true).putBoolean("setupComplete",true).remove("setupStep").apply();setupOpen=false;settingsOpen=false;expanded=false;query="";sourceStatus="";tab=streaming?1:0;generation++;render();if(tab==0)loadLocal();else loadOnline();}
     void setupAction(LinearLayout host,Button action,int gap){
+        if("Back".contentEquals(action.getText())||"Skip Setup".contentEquals(action.getText()))semibold(action);else bold(action);
         action.setMinHeight(dp(52));action.setMinimumHeight(dp(52));action.setSingleLine(false);action.setMaxLines(3);padding(action,16,10);
         LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);params.topMargin=dp(gap);host.addView(action,params);
     }
     boolean standardFolderOnly(int target){return prefs.getBoolean(target==0?"musicStandardFolderOnly":"videoStandardFolderOnly",target==0);}
     void standardFolderOptions(LinearLayout host){
         for(int target:new int[]{0,2}){
-            final int kind=target;Switch standard=new Switch(this);standard.setText(target==0?"Music folder only":"Movies folder only");standard.setTextColor(ink);standard.setTypeface(font);standard.setTextSize(14);standard.setChecked(standardFolderOnly(target));tintSettingsSwitch(standard);
+            final int kind=target;Switch standard=new Switch(this);standard.setText(target==0?"Music folder only":"Movies folder only");standard.setTextColor(ink);standard.setTypeface(font);standard.setTextSize(14);standard.setMinHeight(dp(48));standard.setChecked(standardFolderOnly(target));tintSettingsSwitch(standard);
             standard.setOnCheckedChangeListener((b,on)->{prefs.edit().putBoolean(kind==0?"musicStandardFolderOnly":"videoStandardFolderOnly",on).apply();localMusic.clear();localVideo.clear();generation++;});
             LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);params.topMargin=dp(target==0?6:2);host.addView(standard,params);
         }
@@ -637,8 +675,8 @@ public class MainActivity extends Activity {
         if(!allowed(Manifest.permission.RECORD_AUDIO))card.addView(button("Allow audio analysis",()->requestGlowPermission()));
     }
     void mediaAccessSettings(LinearLayout page){
-        LinearLayout card=settingsCard(page,"Media access");card.addView(text(mediaAccessStatus(),13,ink));
-        LinearLayout accessActions=row();ImageButton access=toolIcon(19,"Manage media access",()->requestMedia());access.setBackgroundColor(Color.TRANSPARENT);padding(access,12,12);accessActions.addView(access,new LinearLayout.LayoutParams(dp(48),dp(48)));ImageButton setup=toolIcon(20,"Run setup again",()->beginSetup());setup.setBackgroundColor(Color.TRANSPARENT);padding(setup,12,12);LinearLayout.LayoutParams setupIconParams=new LinearLayout.LayoutParams(dp(48),dp(48));setupIconParams.leftMargin=dp(12);accessActions.addView(setup,setupIconParams);card.addView(accessActions);standardFolderOptions(card);
+        LinearLayout card=settingsCard(page,"Media access");
+        LinearLayout accessActions=row();accessActions.addView(text(mediaAccessStatus(),13,ink),new LinearLayout.LayoutParams(0,-2,1));ImageButton access=toolIcon(19,"Manage media access",()->requestMedia());access.setBackgroundColor(Color.TRANSPARENT);padding(access,12,12);accessActions.addView(access,new LinearLayout.LayoutParams(dp(48),dp(48)));ImageButton setup=toolIcon(20,"Run setup again",()->beginSetup());setup.setBackgroundColor(Color.TRANSPARENT);padding(setup,12,12);LinearLayout.LayoutParams setupIconParams=new LinearLayout.LayoutParams(dp(48),dp(48));setupIconParams.leftMargin=dp(12);accessActions.addView(setup,setupIconParams);LinearLayout.LayoutParams headerParams=new LinearLayout.LayoutParams(-1,-2);headerParams.bottomMargin=dp(4);card.addView(accessActions,headerParams);standardFolderOptions(card);
     }
     void releaseOldFolderGrants(){
         for(android.content.UriPermission grant:getContentResolver().getPersistedUriPermissions())try{
@@ -655,7 +693,7 @@ public class MainActivity extends Activity {
         if(resetInProgress)return;resetInProgress=true;generation++;if(pendingSearch!=null)main.removeCallbacks(pendingSearch);cancelPlayHolds();stopDiscAnimation();
         if(playback!=null){playback.listener=null;playback.stopPlayback();}if(equalizer!=null)equalizer.close();queue.clear();queue.setRepeatMode(PlaybackQueue.OFF);queue.setShuffle(false,null);
         getIntent().removeExtra("openNowPlaying");getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);current=null;player=null;prepared=false;playing=false;isVideo=false;pendingNowPlaying=false;expanded=false;tvMode=false;settingsOpen=false;returningFromAccessSettings=false;
-        saved.clear();localMusic.clear();localVideo.clear();online.clear();shown.clear();movingArt.clear();query="";sourceStatus="";status="Your library, beautifully simple.";country="ph";showingSaved=false;libraryPosition=0;libraryOffset=0;eqSettingsState="";glowUnavailable=false;glowPermissionDialog=false;
+        saved.clear();localMusic.clear();localVideo.clear();online.clear();shown.clear();movingArt.clear();query="";sourceStatus="";status="Your library, beautifully simple.";country="ph";fmCountry="all";showingSaved=false;libraryPosition=0;libraryOffset=0;eqSettingsState="";glowUnavailable=false;glowPermissionDialog=false;
         settingsScroll=null;settingsPage=null;settingsRestoring=false;settingsAnchor=null;settingsAnchorOffset=0;settingsScrollY=0;releaseOldFolderGrants();prefs.edit().clear().putBoolean("setupStarted",true).putBoolean("setupComplete",false).putInt("setupStep",0).putBoolean("indexedLibraryOnly",true).putBoolean("pendingPlaybackReset",playback==null).commit();
         setupOpen=true;setupStep=0;tab=0;render();
         final ArtworkLoader oldArtwork=artwork;oldArtwork.close();
@@ -665,7 +703,17 @@ public class MainActivity extends Activity {
     void chooseAccent(String style){prefs.edit().putString("accentStyle",AccentStyle.normalize(style)).remove("accent").apply();render();}
     void accentSettings(LinearLayout page){
         LinearLayout card=settingsCard(page,"Accent color");card.addView(text("Device follows Android. RGB is a slow color wave on controls and discs only; card backgrounds stay steady. Disc lighting follows every selected palette.",12,muted));
-        for(int i=0;i<AccentStyle.IDS.length;i++){final String id=AccentStyle.IDS[i];String label=AccentStyle.NAMES[i];boolean selected=id.equals(accentStyle());Button choice=button((selected?"✓ ":"")+label,()->chooseAccent(id));choice.setGravity(Gravity.CENTER_VERTICAL|Gravity.LEFT);choice.setSingleLine(false);choice.setMinHeight(dp(50));choice.setMinimumHeight(dp(50));choice.setSelected(selected);choice.setBackground(round(selected?SurfacePalette.mix(panel,AccentStyle.base(id,deviceAccent),.24f):normalBg,16));int[] swatchColors=AccentStyle.ring(id,deviceAccent);GradientDrawable swatch=new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,swatchColors);swatch.setCornerRadius(dp(12));swatch.setBounds(0,0,dp(28),dp(28));choice.setCompoundDrawables(swatch,null,null,null);choice.setCompoundDrawablePadding(dp(12));LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);params.topMargin=dp(8);card.addView(choice,params);}
+        for(int start=0;start<AccentStyle.IDS.length;start+=2){
+            LinearLayout choices=row();LinearLayout.LayoutParams rowParams=new LinearLayout.LayoutParams(-1,-2);rowParams.topMargin=dp(8);card.addView(choices,rowParams);
+            for(int column=0;column<2;column++){
+                int index=start+column;LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(0,-2,1);if(column==0)params.rightMargin=dp(8);
+                if(index>=AccentStyle.IDS.length){choices.addView(new Space(this),params);continue;}
+                final String id=AccentStyle.IDS[index];String label=AccentStyle.NAMES[index];boolean selected=id.equals(accentStyle());
+                Button choice=button((selected?"✓ ":"")+label,()->chooseAccent(id));choice.setGravity(Gravity.CENTER_VERTICAL|Gravity.LEFT);choice.setSingleLine(false);choice.setMinHeight(dp(56));choice.setMinimumHeight(dp(56));choice.setSelected(selected);choice.setContentDescription(label+(selected?", selected":""));padding(choice,8,4);
+                choice.setBackground(round(selected?SurfacePalette.mix(panel,AccentStyle.base(id,deviceAccent),.24f):normalBg,16));
+                int[] swatchColors=AccentStyle.ring(id,deviceAccent);GradientDrawable swatch=new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,swatchColors);swatch.setCornerRadius(dp(10));swatch.setBounds(0,0,dp(22),dp(22));choice.setCompoundDrawables(swatch,null,null,null);choice.setCompoundDrawablePadding(dp(8));choices.addView(choice,params);
+            }
+        }
     }
     void colorBackground(View view,int color){if(view==null)return;android.graphics.drawable.Drawable drawable=view.getBackground();while(drawable instanceof android.graphics.drawable.InsetDrawable)drawable=((android.graphics.drawable.InsetDrawable)drawable).getDrawable();if(drawable instanceof GradientDrawable)((GradientDrawable)drawable).setColor(color);}
     void scheduleAccentWave(){if(!accentWaveScheduled&&appVisible&&"rgb".equals(accentStyle())){accentWaveScheduled=true;main.postDelayed(accentWave,200);}}
@@ -678,11 +726,10 @@ public class MainActivity extends Activity {
         if(seek!=null){seek.setProgressTintList(android.content.res.ColorStateList.valueOf(accent));seek.setThumbTintList(android.content.res.ColorStateList.valueOf(accent));}
         for(Switch toggle:new ArrayList<>(accentSwitches))tintSettingsSwitch(toggle);
     }
-    void about(){dialog("Tuhkar v1.0.0").setMessage("Created by KnightWin · GNU GPL v3\n\nMusic & videos • Radio & TV\nEqualizer, disc effects, themes and saved favorites.\n\nPRIVACY\n• No ads or analytics. Your media files stay on your device.\n• Optional artwork searches share titles/artists with cover services. Turn downloads off in Settings.\n• Beat glow needs Android’s Record audio permission but analyzes only app playback—no microphone recording or saved/uploaded audio.\n• Streams/artwork contact third parties. HTTP links aren’t encrypted.\n• Reset clears settings and cache, never your music/videos.\n\nStreams may be unavailable or region-limited. Use only authorized links.\n\nCredits: Radio Browser · iptv-org · iTunes · Wikipedia\nManrope & Lobster Two fonts · SIL OFL").setPositiveButton("Done",null).show();}
+    void about(){dialog("Tuhkar v1.1.0").setMessage("Created by KnightWin · GNU GPL v3\n\nMusic & videos • Radio & TV\nEqualizer, disc effects, themes and saved favorites.\n\nPRIVACY\n• No ads or analytics. Your media files stay on your device.\n• Optional artwork searches share titles/artists with cover services. Turn downloads off in Settings.\n• Beat glow needs Android’s Record audio permission but analyzes only app playback—no microphone recording or saved/uploaded audio.\n• Streams/artwork contact third parties. HTTP links aren’t encrypted.\n• Reset clears settings and cache, never your music/videos.\n\nStreams may be unavailable or region-limited. Use only authorized links.\n\nCredits: Radio Browser · iptv-org · iTunes · Wikipedia\nManrope & Lobster Two fonts · SIL OFL").setPositiveButton("Done",null).show();}
     void swipeSelect(int index){if(index<0||index>=shown.size()||!playbackReady())return;boolean keepPlaying=playing;Item item=shown.get(index);queue.reset(shown,item);if(keepPlaying){playback.play(item);playbackPermission();}else playback.selectPaused(item);}
     void start(Item item){if(!playbackReady())return;playback.play(item);playbackPermission();}
     void fitVideo(int width,int height){if(width<=0||height<=0||surface==null)return;surface.post(()->{if(destroyed||surface==null)return;if(tvMode){if(tvStage==null)return;int w=tvStage.getWidth(),h=tvStage.getHeight();if(w<=0||h<=0)return;float fit=Math.min((float)w/width,(float)h/height);int newW=Math.max(1,(int)(width*fit)),newH=Math.max(1,(int)(height*fit));android.view.ViewGroup.LayoutParams currentSize=surface.getLayoutParams();if(currentSize.width!=newW||currentSize.height!=newH)surface.setLayoutParams(new FrameLayout.LayoutParams(newW,newH,Gravity.CENTER));return;}if(videoBox==null)return;int maxW=videoBox.getWidth(),maxH=expanded?videoBox.getHeight():landscape?dp(150):Math.min(Math.max(1,Math.round((float)maxW*height/width)),dp(getResources().getConfiguration().screenHeightDp*.30f));if(maxW<=0||maxH<=0)return;float scale=Math.min((float)maxW/width,(float)maxH/height);videoBox.setMinimumHeight(maxH);int fittedW=Math.max(1,(int)(width*scale)),fittedH=Math.max(1,(int)(height*scale));android.view.ViewGroup.LayoutParams size=surface.getLayoutParams();if(size.width!=fittedW||size.height!=fittedH)surface.setLayoutParams(new LinearLayout.LayoutParams(fittedW,fittedH));});}
-    void pause(){if(playback!=null)playback.pause();}
     void toggle(){if(!playbackReady())return;if(playback.current==null){toast("Choose something to play first.");return;}playback.toggle();}
     void stop(){cancelPlayHolds();if(playback!=null)playback.stopPlayback();}
     void next(int direction){if(playbackReady())playback.next(direction);}
@@ -690,7 +737,7 @@ public class MainActivity extends Activity {
         updateQueueButtons();updateArtworkMotion();updateRingProgress();
         if(deck!=null&&current!=null&&!settingsOpen&&!setupOpen&&!expanded)for(int i=0;i<shown.size();i++)if(shown.get(i).url.equals(current.url)){deck.align(i);break;}
         if(tvMode){if(tvTitle!=null)tvTitle.setText(current==null?"TV":current.title);if(tvStatus!=null)tvStatus.setText(status);if(tvPlay!=null)tvPlay.setText(playing?"Ⅱ":"▶");if(!playing)revealTV();else if(tvControls!=null&&tvControls.getVisibility()==View.VISIBLE){main.removeCallbacks(hideTV);main.postDelayed(hideTV,4000);}return;}
-        if(playerBox!=null&&!expanded)playerBox.setContentDescription((current==null?"Player":current.title)+". "+status+". Tap to open Now Playing.");if(nowTitle!=null)nowTitle.setText(current==null?"Ready when you are":current.title);if(nowDetail!=null)nowDetail.setText(status);if(playButton!=null)playButton.setText(playing?"Ⅱ":"▶");if(videoBox!=null)videoBox.setVisibility(current!=null&&isVideo?View.VISIBLE:View.GONE);if(surface!=null&&!tvMode)surface.setContentDescription(current!=null&&current.kind.equals("tv")?"TV preview. Double-tap for landscape fullscreen.":"Video preview");if(seek!=null)seek.setEnabled(prepared);
+        if(playerBox!=null&&!expanded)playerBox.setContentDescription((current==null?"Player":current.title)+". "+status+". Tap to open Now Playing.");if(nowTitle!=null)nowTitle.setText(current==null?"Ready when you are":current.title);if(nowDetail!=null)nowDetail.setText(status);if(playButton!=null)playButton.setText(playing?"Ⅱ":"▶");if(videoBox!=null)videoBox.setVisibility(inlineVideoVisible()?View.VISIBLE:View.GONE);if(surface!=null&&!tvMode)surface.setContentDescription(current!=null&&current.kind.equals("tv")?"TV preview. Double-tap for landscape fullscreen.":"Video preview");if(seek!=null)seek.setEnabled(prepared);
         if(expanded&&disc!=null&&current!=null&&!current.url.equals(discUrl)){discUrl=current.url;artwork.bind(disc,current,accent);configureDisc(disc,current);}syncDisc();
     }
     String format(long ms){long seconds=Math.max(0,ms/1000);return seconds>=3600?String.format(Locale.ROOT,"%d:%02d:%02d",seconds/3600,seconds/60%60,seconds%60):String.format(Locale.ROOT,"%d:%02d",seconds/60,seconds%60);}
@@ -700,11 +747,11 @@ public class MainActivity extends Activity {
     @Override public void onBackPressed(){if(resetInProgress)return;if(setupOpen){setupBack();return;}if(tvMode){exitTV();return;}if(expanded){expanded=false;render();return;}if(settingsOpen){closeSettings();return;}super.onBackPressed();}
     @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);render();updatePlayer();if(player!=null&&prepared&&isVideo)try{fitVideo(player.getVideoWidth(),player.getVideoHeight());}catch(Exception ignored){}}
     @Override public void onStop(){
-        super.onStop();rememberSettingsScroll();cancelPlayHolds();appVisible=false;main.removeCallbacks(accentWave);accentWaveScheduled=false;main.removeCallbacks(hideTV);syncDisc();updateArtworkMotion();if(artwork!=null)artwork.setActive(false);main.removeCallbacks(ticker);
+        videoOutput.setRetaining(false);super.onStop();rememberSettingsScroll();cancelPlayHolds();appVisible=false;main.removeCallbacks(accentWave);accentWaveScheduled=false;main.removeCallbacks(hideTV);syncDisc();updateArtworkMotion();if(artwork!=null)artwork.setActive(false);main.removeCallbacks(ticker);
         if(list!=null){libraryPosition=list.getFirstVisiblePosition();View first=list.getChildAt(0);libraryOffset=first==null?0:first.getTop();}else if(grid!=null)libraryPosition=grid.getFirstVisiblePosition();
         if(playback!=null){playback.background();if(playback.listener==playbackChanged)playback.listener=null;}
         if(serviceBound){unbindService(playbackConnection);serviceBound=false;}clearVideoOutputCache();playback=null;player=null;
     }
     @Override public void onStart(){super.onStart();appVisible=true;scheduleAccentWave();syncDisc();if(artwork!=null)artwork.setActive(true);main.removeCallbacks(ticker);main.post(ticker);if(!serviceBound)serviceBound=bindService(new Intent(this,PlaybackService.class),playbackConnection,Context.BIND_AUTO_CREATE);}
-    @Override public void onDestroy(){cancelPlayHolds();stopDiscAnimation();if(reactiveGlow!=null)reactiveGlow.stop();destroyed=true;generation++;main.removeCallbacksAndMessages(null);if(playback!=null&&playback.listener==playbackChanged)playback.listener=null;if(serviceBound){unbindService(playbackConnection);serviceBound=false;}if(!serviceEq&&equalizer!=null)equalizer.close();io.shutdownNow();if(artwork!=null)artwork.close();super.onDestroy();}
+    @Override public void onDestroy(){videoOutput.setRetaining(false);cancelPlayHolds();stopDiscAnimation();if(reactiveGlow!=null)reactiveGlow.stop();destroyed=true;generation++;main.removeCallbacksAndMessages(null);if(playback!=null&&playback.listener==playbackChanged)playback.listener=null;if(serviceBound){unbindService(playbackConnection);serviceBound=false;}if(!serviceEq&&equalizer!=null)equalizer.close();io.shutdownNow();if(artwork!=null)artwork.close();super.onDestroy();}
 }

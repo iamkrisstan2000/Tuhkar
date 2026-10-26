@@ -1,4 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.luma.media" android:versionCode="37" android:versionName="1.0.0">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.luma.media" android:versionCode="49" android:versionName="1.1.0">
 <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35"/>
 <uses-permission android:name="android.permission.INTERNET"/>
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
@@ -12,7 +12,7 @@
 <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
 <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
 <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED"/>
-<application android:hardwareAccelerated="true" android:label="Tuhkar" android:theme="@style/AppTheme" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:enableOnBackInvokedCallback="false" android:allowBackup="false" android:usesCleartextTraffic="true" android:supportsRtl="true">
+<application android:hardwareAccelerated="true" android:label="Tuhkar" android:theme="@style/AppTheme" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:enableOnBackInvokedCallback="false" android:allowBackup="false" android:usesCleartextTraffic="true" android:supportsRtl="true">
 <meta-data android:name="com.luma.media.CREATOR" android:value="KnightWin"/>
 <meta-data android:name="com.luma.media.LICENSE" android:value="GPL-3.0-only"/>
 <service android:name=".PlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback" android:stopWithTask="false"/>

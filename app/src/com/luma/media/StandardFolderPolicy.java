@@ -33,11 +33,4 @@ final class StandardFolderPolicy {
         }
         return false;
     }
-    static boolean document(String id,int target){
-        if(id==null)return false;
-        if(id.startsWith("raw:"))return absolute(id.substring(4),target);
-        int colon=id.indexOf(':');
-        // ExternalStorageProvider IDs are volume:relative/path, already URI-decoded by Android.
-        return colon>0&&relative(id.substring(colon+1),target);
-    }
 }

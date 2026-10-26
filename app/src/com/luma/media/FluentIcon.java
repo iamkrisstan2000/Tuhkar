@@ -47,12 +47,8 @@ public final class FluentIcon extends Drawable {
         }else if(kind==9){
             Path a=new Path();a.moveTo(3,6);a.lineTo(6,6);a.cubicTo(10,6,14,18,18,18);a.lineTo(21,18);canvas.drawPath(a,paint);canvas.drawLine(18,15,21,18,paint);canvas.drawLine(21,18,18,21,paint);
             Path crossing=new Path();crossing.moveTo(3,18);crossing.lineTo(6,18);crossing.cubicTo(10,18,14,6,18,6);crossing.lineTo(21,6);canvas.drawPath(crossing,paint);canvas.drawLine(18,3,21,6,paint);canvas.drawLine(21,6,18,9,paint);
-        }else if(kind==11){ // scan frame and scanning line
-            Path frame=new Path();frame.moveTo(4,9);frame.lineTo(4,4);frame.lineTo(9,4);frame.moveTo(15,4);frame.lineTo(20,4);frame.lineTo(20,9);frame.moveTo(20,15);frame.lineTo(20,20);frame.lineTo(15,20);frame.moveTo(9,20);frame.lineTo(4,20);frame.lineTo(4,15);canvas.drawPath(frame,paint);canvas.drawLine(6,12,18,12,paint);
         }else if(kind==12){ // clockwise refresh
             canvas.drawArc(4,4,20,20,40,290,false,paint);canvas.drawLine(19,3,19,8,paint);canvas.drawLine(14,8,19,8,paint);
-        }else if(kind==13){ // wired headphone FM
-            Path band=new Path();band.moveTo(4,14);band.lineTo(4,11);band.cubicTo(4,1,20,1,20,11);band.lineTo(20,14);canvas.drawPath(band,paint);canvas.drawRoundRect(4,12,8,20,2,2,paint);canvas.drawRoundRect(16,12,20,20,2,2,paint);
         }else if(kind==14){ // direct URL / chain link
             canvas.rotate(-45,12,12);canvas.drawRoundRect(3,8,13,16,4,4,paint);canvas.drawRoundRect(11,8,21,16,4,4,paint);canvas.drawLine(9,12,15,12,paint);
         }else if(kind==15){ // region globe
