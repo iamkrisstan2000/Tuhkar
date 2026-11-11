@@ -92,7 +92,7 @@ assert 'android:stopWithTask="false"' in manifest
 assert 'new MediaPlayer()' in service and 'new MediaPlayer()' not in source
 assert 'new MediaSession(' in service and 'setMediaSession(session.getSessionToken())' in service
 assert 'setWakeMode(this,PowerManager.PARTIAL_WAKE_LOCK)' in service
-assert 'void background(){if(isVideo)pause();' in service
+assert 'void background(){appInBackground=true;if(isVideo&&!backgroundAudioAllowed())pause();' in service
 start=source.index('@Override public void onStop()')
 end=source.index('@Override public void onStart()',start)
 background=source[start:end]
@@ -122,9 +122,9 @@ assert 'kind==16' in icons and 'paint.setStyle(Paint.Style.FILL);canvas.drawPath
 print('PASS: solid borderless Saved heart, accessible selected state, borderless FM/TV tools inside 48dp header targets beside Saved; obsolete separate tool row removed.')
 
 # All Settings switches share state-aware accent colors, including disabled folders.
-for control in ('enabled','black','downloads','standard','glow'):
+for control in ('enabled','black','downloads','standard','glow','background'):
     assert 'tintSettingsSwitch('+control+');' in source
-assert source.count('new Switch(this)') == 5
+assert source.count('new Switch(this)') == 6
 helper = source[source.index('void tintSettingsSwitch('):source.index('void renderSettings(')]
 assert 'setThumbTintList' in helper and 'setTrackTintList' in helper
 assert '-android.R.attr.state_enabled' in helper and 'android.R.attr.state_checked' in helper
