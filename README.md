@@ -5,6 +5,20 @@
 
 A lightweight native Android media player, created by **KnightWin**.
 
+## Screenshots 
+
+<img width="2400" height="1080" alt="Screenshot_20261026-031051" src="https://github.com/user-attachments/assets/a0a964d3-4bec-483e-909f-2c1e6b3b1f94" />
+<img width="1080" height="2400" alt="Screenshot_20261026-031008" src="https://github.com/user-attachments/assets/38b24267-a82a-4794-9671-6b8d3e02477b" />
+<img width="1080" height="2400" alt="Screenshot_20261026-031000" src="https://github.com/user-attachments/assets/3aca983e-b5fe-49e5-ae16-01d713b20b3b" />
+<img width="1080" height="2400" alt="Screenshot_20261026-030951" src="https://github.com/user-attachments/assets/a3cbf605-5cc4-4a9b-8aa4-74aba553d676" />
+<img width="1080" height="2400" alt="Screenshot_20261026-030940" src="https://github.com/user-attachments/assets/aefac76d-fb07-41c6-85d6-a2494c206dec" />
+<img width="1080" height="2400" alt="Screenshot_20261026-030938" src="https://github.com/user-attachments/assets/66cf611f-ae37-4be1-83cd-72549ec3cb50" />
+<img width="1080" height="2400" alt="Screenshot_20261026-030924" src="https://github.com/user-attachments/assets/35724620-70c0-4683-8fe4-4ed8af9e9074" />
+<img width="1080" height="2400" alt="Screenshot_20261026-030917" src="https://github.com/user-attachments/assets/ac6e1560-7758-4506-89e7-d96f624f5651" />
+<img width="1080" height="2400" alt="Screenshot_20261026-030913" src="https://github.com/user-attachments/assets/04fb12a7-de64-4a48-986a-d9805665f262" />
+<img width="1080" height="2400" alt="Screenshot_20261026-023021" src="https://github.com/user-attachments/assets/7b01d4c8-855a-4586-b0eb-533a3106e136" />
+
+
 ## Make yourself at home
 
 - Play music and videos from your phone or SD card.
