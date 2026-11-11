@@ -10,7 +10,6 @@ import android.media.session.*;
 import android.net.Uri;
 import android.os.*;
 import android.view.KeyEvent;
-import java.util.*;
 
 /** The service, not an Activity, owns playback, focus, queue, EQ and the media session. */
 public final class PlaybackService extends Service {
@@ -20,6 +19,8 @@ public final class PlaybackService extends Service {
     final Handler main=new Handler(Looper.getMainLooper());
     final LocalBinder binder=new LocalBinder();
     final PlaybackQueue<MainActivity.Item> queue=new PlaybackQueue<>(item->item.url);
+    android.content.SharedPreferences preferences;
+    boolean appInBackground;
     NativeEq equalizer;
     NativeReverb reverb;
     MusicCrossfade crossfade;
@@ -36,7 +37,7 @@ public final class PlaybackService extends Service {
     @Override public IBinder onBind(Intent intent){return binder;}
     @Override public void onCreate(){
         super.onCreate();
-        android.content.SharedPreferences prefs=getSharedPreferences("luma",0);
+        android.content.SharedPreferences prefs=getSharedPreferences("luma",0);preferences=prefs;
         equalizer=new NativeEq(prefs);reverb=new NativeReverb(prefs);crossfade=new MusicCrossfade(this,prefs);queue.setRepeatMode(prefs.getInt("repeatMode",0));queue.setShuffle(prefs.getBoolean("shuffle",false),null);
         audio=(AudioManager)getSystemService(AUDIO_SERVICE);
         focus=new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()).setOnAudioFocusChangeListener(change->{if(change<0)pause();},main).build();
@@ -101,6 +102,7 @@ public final class PlaybackService extends Service {
     void play(MainActivity.Item item){
         if(item==null)return;
         releasePlayer();current=item;isVideo=item.kind.equals("video")||item.kind.equals("tv");status="Connecting…";
+        if(appInBackground&&isVideo&&!backgroundAudioAllowed()){status="Paused";demote();publish();return;}
         try{
             // Android 15 requires visible UI or an already foreground service before focus.
             promote();
@@ -133,13 +135,17 @@ public final class PlaybackService extends Service {
         playing=false;status="Paused";audio.abandonAudioFocusRequest(focus);demote();publish();
     }
     void resume(){
+        if(appInBackground&&isVideo&&!backgroundAudioAllowed()){pause();return;}
         if(current==null){stopPlayback();return;}
         if(player==null||!prepared){play(current);return;}
         try{promote();if(audio.requestAudioFocus(focus)==AudioManager.AUDIOFOCUS_REQUEST_GRANTED){player.start();playing=true;status="Playing";}else{status="Audio focus unavailable";demote();}publish();}catch(Exception e){fail("Unable to resume playback");}
     }
     void toggle(){if(playing)pause();else resume();}
     void next(int direction){MainActivity.Item next=queue.step(current,direction,false);if(next!=null)play(next);else if(current==null)stopPlayback();}
-    void background(){if(isVideo)pause();if(player!=null&&isVideo)try{player.setDisplay(null);}catch(Exception ignored){}}
+    boolean backgroundAudioAllowed(){return current!=null&&"video".equals(current.kind)&&preferences.getBoolean("backgroundVideoAudio",false);}
+    void foregroundUi(){appInBackground=false;}
+    void background(){appInBackground=true;if(isVideo&&!backgroundAudioAllowed())pause();if(player!=null&&isVideo)try{player.setDisplay(null);}catch(Exception ignored){}}
+
     void stopPlayback(){releasePlayer();current=null;isVideo=false;status="Playback stopped";queue.clear();publish();stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).cancel(NOTIFICATION);stopSelf();}
     private void releasePlayer(){
         main.removeCallbacksAndMessages(null);

@@ -38,7 +38,10 @@ public class MainActivity extends Activity {
     SwipeDeck deck;
     TextView emptyMedia;
     int libraryHeight=400,gridColumns=4;
+    boolean fullscreenWasExpanded;
     boolean settingsOpen;
+    View sectionPage,animatedSection;
+    boolean sectionTransitioning;
     boolean settingsFadePending;
     ScrollView settingsScroll;
     LinearLayout settingsPage;
@@ -105,7 +108,7 @@ public class MainActivity extends Activity {
     final ServiceConnection playbackConnection=new ServiceConnection(){
         @Override public void onServiceConnected(ComponentName name,IBinder binder){
             if(!serviceBound||!appVisible)return;
-            playback=((PlaybackService.LocalBinder)binder).service();
+            playback=((PlaybackService.LocalBinder)binder).service();if(appVisible)playback.foregroundUi();else playback.background();
             if(prefs.getBoolean("pendingPlaybackReset",false)){playback.listener=null;playback.stopPlayback();playback.queue.setRepeatMode(PlaybackQueue.OFF);playback.queue.setShuffle(false,null);prefs.edit().remove("pendingPlaybackReset").apply();}
             if(!serviceEq&&equalizer!=null)equalizer.close();
             equalizer=playback.equalizer;serviceEq=true;queue=playback.queue;playback.listener=playbackChanged;syncPlayback(true);
@@ -117,7 +120,7 @@ public class MainActivity extends Activity {
         boolean previousVideo=isVideo;equalizer=playback.equalizer;
         player=playback.player;current=playback.current;prepared=playback.prepared;playing=playback.playing;isVideo=playback.isVideo;status=playback.status;
         if(pendingNowPlaying){pendingNowPlaying=false;if(current!=null&&!tvMode){expanded=true;settingsOpen=false;rebuild=true;}}
-        if(tvMode&&(current==null||!current.kind.equals("tv"))){exitTV();return;}
+        if(tvMode&&!fullscreenVideoAvailable()){exitTV();return;}
         if(expanded&&current==null){if(previousVideo){expanded=false;rebuild=true;}else main.postDelayed(()->{if(!destroyed&&current==null&&expanded){expanded=false;render();}},450);}
         if(expanded&&previousVideo!=isVideo)rebuild=true;
         if(settingsOpen&&!eqSettingsState.equals(equalizerUiState()))rebuild=true;
@@ -213,6 +216,7 @@ public class MainActivity extends Activity {
         ImageButton region=toolIcon(15,"Region: "+(tab==1?RadioDirectory.label(fmCountry):country.toUpperCase(Locale.ROOT)),()->chooseCountry());region.setBackgroundColor(Color.TRANSPARENT);region.setStateListAnimator(null);padding(region,14,14);header.addView(region,new LinearLayout.LayoutParams(dp(48),dp(48)));
     }
     void render(){
+        cancelSectionTransition();sectionPage=null;
         videoOutput.setRetaining(appVisible&&isVideo&&current!=null&&!settingsOpen&&!setupOpen&&!tvMode&&!resetInProgress);
         rememberSettingsScroll();settingsScroll=null;settingsPage=null;
         cancelPlayHolds();stopDiscAnimation();accentSwitches.clear();setupPrimary=null;colors();scheduleAccentWave();setTheme(dark?com.luma.media.R.style.DarkAppTheme:com.luma.media.R.style.AppTheme);root=column();applyPageBackground();setContentView(root);movingArt.clear();
@@ -229,7 +233,7 @@ public class MainActivity extends Activity {
         if(settingsOpen){renderSettings();if(!landscape)addBottomNav();return;}
         body=row();body.setGravity(Gravity.TOP);root.addView(body,new LinearLayout.LayoutParams(-1,0,1));
         if(landscape)addNavRail(body);
-        content=column();padding(content,16,landscape?8:12);body.addView(content,new LinearLayout.LayoutParams(0,-1,1));
+        content=column();sectionPage=content;padding(content,16,landscape?8:12);body.addView(content,new LinearLayout.LayoutParams(0,-1,1));
         LinearLayout brand=row();HeaderWordmark logo=new HeaderWordmark(this);logo.setPadding(0,0,dp(8),0);brand.addView(logo,new LinearLayout.LayoutParams(0,dp(48),1));ImageButton refresh=toolIcon(12,tab==0?"Refresh music library":tab==1?"Refresh radio stations":tab==2?"Refresh video library":"Refresh TV channels",()->refreshSection());refresh.setBackgroundColor(Color.TRANSPARENT);refresh.setStateListAnimator(null);padding(refresh,12,12);LinearLayout.LayoutParams refreshParams=new LinearLayout.LayoutParams(dp(48),dp(48));refreshParams.leftMargin=dp(8);brand.addView(refresh,refreshParams);content.addView(brand);
         headline=text(titles[tab],landscape?27:36,ink);bold(headline);padding(headline,0,4);content.addView(headline);
         subtitle=text(tab==0?"On your device. In your element.":tab==1?"A world of sound, one station away.":tab==2?"Your collection, on the big picture.":"Tune in to something new.",12,muted);content.addView(subtitle);if(landscape)subtitle.setVisibility(View.GONE);
@@ -251,7 +255,19 @@ public class MainActivity extends Activity {
         refreshList();
     }
     void refreshSection(){if(tab==0||tab==2)loadLocal();else loadOnline();}
-    void addBottomNav(){HorizontalScrollView scroll=new HorizontalScrollView(this);scroll.setHorizontalScrollBarEnabled(false);scroll.setFillViewport(true);nav=row();padding(nav,16,3);nav.setMinimumWidth(dp(272));scroll.addView(nav,new FrameLayout.LayoutParams(-1,-2));LinearLayout.LayoutParams navParams=new LinearLayout.LayoutParams(-1,dp(54));navParams.topMargin=dp(settingsOpen?0:8);root.addView(scroll,navParams);buildNav();if(settingsOpen)scroll.post(()->scroll.fullScroll(View.FOCUS_RIGHT));}
+    void addBottomNav(){HorizontalScrollView scroll=new NavSwipeBar(this,direction->swipeSection(direction));scroll.setHorizontalScrollBarEnabled(false);scroll.setFillViewport(true);nav=row();padding(nav,16,3);nav.setMinimumWidth(dp(272));scroll.addView(nav,new FrameLayout.LayoutParams(-1,-2));LinearLayout.LayoutParams navParams=new LinearLayout.LayoutParams(-1,dp(54));navParams.topMargin=dp(settingsOpen?0:8);root.addView(scroll,navParams);buildNav();if(settingsOpen)scroll.post(()->scroll.fullScroll(View.FOCUS_RIGHT));}
+    void cancelSectionTransition(){
+        if(animatedSection!=null){animatedSection.animate().cancel();animatedSection.setAlpha(1f);animatedSection.setTranslationX(0);animatedSection=null;}sectionTransitioning=false;
+    }
+    void swipeSection(int direction){
+        if(!appVisible||setupOpen||tvMode||expanded||landscape||sectionTransitioning)return;
+        int currentSection=settingsOpen?4:tab,target=NavSwipeMath.target(currentSection,direction);if(target==currentSection)return;
+        if(target==4)openSettings();else switchTab(target);
+        if(sectionPage==null||!android.animation.ValueAnimator.areAnimatorsEnabled())return;
+        View entering=sectionPage;entering.animate().cancel();animatedSection=entering;sectionTransitioning=true;
+        entering.setAlpha(.94f);entering.setTranslationX(dp(12)*Integer.signum(direction));
+        entering.animate().alpha(1f).translationX(0).setDuration(180).setInterpolator(new android.view.animation.DecelerateInterpolator()).withEndAction(()->{if(animatedSection==entering){animatedSection=null;sectionTransitioning=false;}}).start();
+    }
     void addNavRail(LinearLayout host){ScrollView scroll=new ScrollView(this);scroll.setVerticalScrollBarEnabled(false);nav=column();padding(nav,10,12);scroll.addView(nav,new ScrollView.LayoutParams(-1,-2));host.addView(scroll,new LinearLayout.LayoutParams(dp(80),-1));buildNav();if(settingsOpen)scroll.post(()->scroll.fullScroll(View.FOCUS_DOWN));}
     void openSettings(){if(settingsOpen)return;generation++;if(pendingSearch!=null)main.removeCallbacks(pendingSearch);settingsOpen=true;settingsFadePending=true;expanded=false;render();}
     void buildNav(){for(int i=0;i<5;i++){final int t=i;boolean selected=i==4?settingsOpen:!settingsOpen&&i==tab;String label=i==4?"Settings":i==1?"FM":titles[i];ImageButton b=new ImageButton(this);b.setImageDrawable(new FluentIcon(i,selected?accentInk:muted));b.setScaleType(ImageView.ScaleType.CENTER_INSIDE);b.setBackground(selected&&!landscape?new android.graphics.drawable.InsetDrawable(round(accent,20),0,dp(4),0,dp(4)):round(selected?accent:Color.TRANSPARENT,20));padding(b,landscape?16:12,landscape?14:12);b.setContentDescription(label);b.setTooltipText(label);b.setSelected(selected);b.setOnClickListener(v->{if(t==4)openSettings();else switchTab(t);});if(landscape){LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(58));lp.bottomMargin=dp(10);nav.addView(b,lp);}else nav.addView(b,new LinearLayout.LayoutParams(0,dp(48),1));}}
@@ -387,7 +403,7 @@ public class MainActivity extends Activity {
         });
     }
     String get(String url,int maxBytes)throws Exception{
-        HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();c.setConnectTimeout(12000);c.setReadTimeout(15000);c.setRequestProperty("User-Agent","Tuhkar/1.1.0 (Android)");
+        HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();c.setConnectTimeout(12000);c.setReadTimeout(15000);c.setRequestProperty("User-Agent","Tuhkar/1.2.0 (Android)");
         try{int code=c.getResponseCode();if(code!=200)throw new IOException("Server returned "+code);try(InputStream in=c.getInputStream();ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] buf=new byte[8192];int n,total=0;while((n=in.read(buf))!=-1){total+=n;if(total>maxBytes)throw new IOException("Directory exceeds safety limit");out.write(buf,0,n);}return out.toString("UTF-8");}}finally{c.disconnect();}
     }
     void loadOnline(){
@@ -510,29 +526,36 @@ public class MainActivity extends Activity {
     }
     void installInlineVideoGesture(){
         final View preview=surface;
-        preview.setOnClickListener(v->{if(current!=null&&current.kind.equals("tv"))enterTV();});
+        preview.setOnClickListener(v->{if(fullscreenVideoAvailable())enterTV();});
         final GestureDetector taps=new GestureDetector(this,new GestureDetector.SimpleOnGestureListener(){
             @Override public boolean onDown(MotionEvent event){return true;}
             @Override public boolean onSingleTapUp(MotionEvent event){return true;}
-            @Override public boolean onDoubleTap(MotionEvent event){if(current!=null&&current.kind.equals("tv")){preview.performClick();return true;}return false;}
+            @Override public boolean onDoubleTap(MotionEvent event){if(fullscreenVideoAvailable()){preview.performClick();return true;}return false;}
         });
         View.OnTouchListener touch=(view,event)->{MotionEvent local=MotionEvent.obtain(event);if(view==preview)local.offsetLocation(preview.getLeft(),preview.getTop());taps.onTouchEvent(local);local.recycle();return true;};
         preview.setOnTouchListener(touch);videoBox.setOnTouchListener(touch);videoBox.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         videoBox.setOnClickListener(v->preview.performClick());
-        preview.setAccessibilityDelegate(new View.AccessibilityDelegate(){@Override public void onInitializeAccessibilityNodeInfo(View host,android.view.accessibility.AccessibilityNodeInfo info){super.onInitializeAccessibilityNodeInfo(host,info);if(current!=null&&current.kind.equals("tv"))info.addAction(new android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK,"Open TV fullscreen"));else{info.removeAction(android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction.ACTION_CLICK);info.setClickable(false);}}});
+        preview.setAccessibilityDelegate(new View.AccessibilityDelegate(){@Override public void onInitializeAccessibilityNodeInfo(View host,android.view.accessibility.AccessibilityNodeInfo info){super.onInitializeAccessibilityNodeInfo(host,info);if(fullscreenVideoAvailable())info.addAction(new android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK,"Open video fullscreen"));else{info.removeAction(android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction.ACTION_CLICK);info.setClickable(false);}}});
     }
-    void enterTV(){if(tvMode||current==null||!current.kind.equals("tv"))return;expanded=false;settingsOpen=false;tvMode=true;priorOrientation=getRequestedOrientation();setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);render();}
-    void exitTV(){main.removeCallbacks(hideTV);tvMode=false;getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);setRequestedOrientation(priorOrientation);render();updatePlayer();}
+    boolean fullscreenVideoAvailable(){return current!=null&&(current.kind.equals("video")||current.kind.equals("tv"));}
+    void enterTV(){if(tvMode||!fullscreenVideoAvailable())return;fullscreenWasExpanded=expanded;expanded=false;settingsOpen=false;tvMode=true;priorOrientation=getRequestedOrientation();setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);render();}
+    void exitTV(){main.removeCallbacks(hideTV);tvMode=false;expanded=fullscreenWasExpanded&&fullscreenVideoAvailable();fullscreenWasExpanded=false;getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);setRequestedOrientation(priorOrientation);render();updatePlayer();}
     final Runnable hideTV=()->{if(tvMode&&playing&&tvControls!=null){if(tvPlay instanceof HoldPlayButton&&((HoldPlayButton)tvPlay).isHolding())return;tvControls.setVisibility(View.GONE);immersiveTV();}};
     void immersiveTV(){if(!tvMode)return;getWindow().setStatusBarColor(Color.BLACK);getWindow().setNavigationBarColor(Color.BLACK);getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);}
     void revealTV(){if(!tvMode||tvControls==null)return;tvControls.setVisibility(View.VISIBLE);main.removeCallbacks(hideTV);if(playing)main.postDelayed(hideTV,4000);}
     void renderTV(){
         root.setPadding(0,0,0,0);root.setBackgroundColor(Color.BLACK);root.setOnApplyWindowInsetsListener((v,insets)->{int left=insets.getSystemWindowInsetLeft(),right=insets.getSystemWindowInsetRight(),bottom=insets.getSystemWindowInsetBottom();if(Build.VERSION.SDK_INT>=30){android.graphics.Insets safe=insets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());left=safe.left;right=safe.right;bottom=safe.bottom;}if(tvControls!=null)tvControls.setPadding(dp(16)+left,dp(12),dp(16)+right,dp(12)+bottom);return insets;});
-        tvStage=new FrameLayout(this);root.addView(tvStage,new LinearLayout.LayoutParams(-1,-1));surface=new SurfaceView(this);tvStage.addView(surface,new FrameLayout.LayoutParams(-1,-1,Gravity.CENTER));surface.setContentDescription("TV picture. Tap to show or hide playback controls.");
-        surface.setOnClickListener(v->{if(tvControls.getVisibility()==View.VISIBLE&&playing){tvControls.setVisibility(View.GONE);main.removeCallbacks(hideTV);}else revealTV();});tvStage.setOnClickListener(v->revealTV());
+        tvStage=new FrameLayout(this);root.addView(tvStage,new LinearLayout.LayoutParams(-1,-1));surface=new SurfaceView(this);tvStage.addView(surface,new FrameLayout.LayoutParams(-1,-1,Gravity.CENTER));surface.setContentDescription("Video picture. Tap for controls; double-tap to exit fullscreen.");
+        surface.setOnClickListener(v->{if(tvControls.getVisibility()==View.VISIBLE&&playing){tvControls.setVisibility(View.GONE);main.removeCallbacks(hideTV);}else revealTV();});
+        GestureDetector fullscreenTaps=new GestureDetector(this,new GestureDetector.SimpleOnGestureListener(){
+            @Override public boolean onDown(MotionEvent event){return true;}
+            @Override public boolean onSingleTapConfirmed(MotionEvent event){if(tvMode&&surface!=null)surface.performClick();return true;}
+            @Override public boolean onDoubleTap(MotionEvent event){if(tvMode)exitTV();return true;}
+        });
+        View.OnTouchListener fullscreenTouch=(view,event)->{fullscreenTaps.onTouchEvent(event);return true;};surface.setOnTouchListener(fullscreenTouch);tvStage.setOnTouchListener(fullscreenTouch);tvStage.setOnClickListener(v->revealTV());
         tvControls=column();tvControls.setBackgroundColor(0xE6000000);padding(tvControls,16,12);FrameLayout.LayoutParams bar=new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM);tvStage.addView(tvControls,bar);
         tvTitle=text(current==null?"TV":current.title,17,Color.WHITE);semibold(tvTitle);tvTitle.setMaxLines(1);tvTitle.setEllipsize(TextUtils.TruncateAt.END);tvControls.addView(tvTitle);tvStatus=text(status,11,0xFFCCCCCC);tvControls.addView(tvStatus);
-        LinearLayout buttons=row();padding(buttons,0,6);ImageButton back=backButton(()->exitTV());back.setImageDrawable(new FluentIcon(5,Color.WHITE));Button previous=transport("|‹","Previous channel",()->{next(-1);revealTV();});tvPlay=holdingPlay(true,false);Button next=transport("›|","Next channel",()->{next(1);revealTV();});View[] all={back,previous,tvPlay,next};for(View b:all){if(b instanceof Button)((Button)b).setTextColor(Color.WHITE);boolean skip=b==previous||b==next;b.setBackground(skip?new SkipButtonDrawable(b==previous,0xFF252925,Color.WHITE,getResources().getDisplayMetrics().density):round(0xFF252925,24));if(skip){((Button)b).setCompoundDrawables(null,null,null,null);b.setPadding(0,0,0,0);}LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(48),dp(48));lp.rightMargin=dp(8);buttons.addView(b,lp);}TextView hint=text("Tap picture to reveal controls",11,0xFFCCCCCC);hint.setGravity(Gravity.END);buttons.addView(hint,new LinearLayout.LayoutParams(0,-2,1));tvControls.addView(buttons);
+        LinearLayout buttons=row();padding(buttons,0,6);ImageButton back=backButton(()->exitTV());back.setImageDrawable(new FluentIcon(5,Color.WHITE));Button previous=transport("|‹","Previous video/channel",()->{next(-1);revealTV();});tvPlay=holdingPlay(true,false);Button next=transport("›|","Next video/channel",()->{next(1);revealTV();});View[] all={back,previous,tvPlay,next};for(View b:all){if(b instanceof Button)((Button)b).setTextColor(Color.WHITE);boolean skip=b==previous||b==next;b.setBackground(skip?new SkipButtonDrawable(b==previous,0xFF252925,Color.WHITE,getResources().getDisplayMetrics().density):round(0xFF252925,24));if(skip){((Button)b).setCompoundDrawables(null,null,null,null);b.setPadding(0,0,0,0);}LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(48),dp(48));lp.rightMargin=dp(8);buttons.addView(b,lp);}TextView hint=text("Tap picture to reveal controls",11,0xFFCCCCCC);hint.setGravity(Gravity.END);buttons.addView(hint,new LinearLayout.LayoutParams(0,-2,1));tvControls.addView(buttons);
         final SurfaceView fullscreenPicture=(SurfaceView)surface;fullscreenPicture.getHolder().addCallback(new SurfaceHolder.Callback(){public void surfaceCreated(SurfaceHolder h){if(surface==fullscreenPicture)attachVideoOutput();}public void surfaceChanged(SurfaceHolder h,int f,int w,int height){if(surface==fullscreenPicture){attachVideoOutput();if(player!=null&&prepared)try{fitVideo(player.getVideoWidth(),player.getVideoHeight());}catch(Exception ignored){}}}public void surfaceDestroyed(SurfaceHolder h){detachVideoOutput(fullscreenPicture);}});
         tvStage.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{if(player!=null&&prepared)try{fitVideo(player.getVideoWidth(),player.getVideoHeight());}catch(Exception ignored){}});root.requestApplyInsets();immersiveTV();revealTV();updatePlayer();
     }
@@ -564,19 +587,24 @@ public class MainActivity extends Activity {
         }});
     }
     void renderSettings(){
-        LinearLayout settingsHost=root;if(landscape){body=row();root.addView(body,new LinearLayout.LayoutParams(-1,0,1));addNavRail(body);settingsHost=column();body.addView(settingsHost,new LinearLayout.LayoutParams(0,-1,1));}ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setVerticalFadingEdgeEnabled(true);scroll.setFadingEdgeLength(dp(12));scroll.setPadding(0,0,0,0);scroll.setClipToPadding(true);scroll.setClipChildren(true);LinearLayout.LayoutParams settingsScrollParams=new LinearLayout.LayoutParams(-1,0,1);settingsScrollParams.bottomMargin=dp(8);settingsHost.addView(scroll,settingsScrollParams);LinearLayout page=column();padding(page,landscape?32:22,16);scroll.addView(page);
+        LinearLayout settingsHost=root;if(landscape){body=row();root.addView(body,new LinearLayout.LayoutParams(-1,0,1));addNavRail(body);settingsHost=column();body.addView(settingsHost,new LinearLayout.LayoutParams(0,-1,1));}ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setVerticalFadingEdgeEnabled(true);scroll.setFadingEdgeLength(dp(12));scroll.setPadding(0,0,0,0);scroll.setClipToPadding(true);scroll.setClipChildren(true);LinearLayout.LayoutParams settingsScrollParams=new LinearLayout.LayoutParams(-1,0,1);settingsScrollParams.bottomMargin=dp(8);settingsHost.addView(scroll,settingsScrollParams);LinearLayout page=column();padding(page,landscape?32:22,16);scroll.addView(page);sectionPage=page;
         if(settingsFadePending){settingsFadePending=false;if(android.animation.ValueAnimator.areAnimatorsEnabled()){page.setAlpha(.97f);page.animate().alpha(1f).setDuration(140).start();}}
         LinearLayout top=row();top.addView(backButton(()->closeSettings()));TextView title=text("Settings",28,ink);bold(title);padding(title,14,4);top.addView(title,new LinearLayout.LayoutParams(0,-2,1));page.addView(top);
         TextView summary=text("Make this space yours.",13,muted);padding(summary,0,12);page.addView(summary);
-        librarySettings(page);discGlowSettings(page);audioEnhancementsSettings(page);mediaAccessSettings(page);
+        librarySettings(page);discGlowSettings(page);audioEnhancementsSettings(page);playbackSettings(page);mediaAccessSettings(page);
         LinearLayout oled=settingsCard(page,"OLED mode");Switch black=new Switch(this);black.setText("Black background in dark mode");black.setTextColor(ink);black.setTypeface(font);black.setChecked(prefs.getBoolean("oled",false));tintSettingsSwitch(black);black.setOnCheckedChangeListener((b,on)->{prefs.edit().putBoolean("oled",on).apply();render();});oled.addView(black);TextView oledNote=text("Black background, colored cards. Follows your phone's theme.",12,muted);padding(oledNote,0,8);oled.addView(oledNote);
         accentSettings(page);
         LinearLayout art=settingsCard(page,"Artwork");Switch downloads=new Switch(this);downloads.setText("Download missing artwork");downloads.setTypeface(font);downloads.setTextColor(ink);downloads.setChecked(prefs.getBoolean("artDownloads",true));tintSettingsSwitch(downloads);downloads.setOnCheckedChangeListener((b,on)->prefs.edit().putBoolean("artDownloads",on).apply());art.addView(downloads);
         TextView privacy=text("Finds missing covers online. Titles and artists are shared with artwork services; your files stay on your phone. May use mobile data.",12,muted);padding(privacy,0,10);art.addView(privacy);
         art.addView(button("Clear artwork cache",()->dialog("Clear artwork cache?").setMessage("Remove saved covers? They can download again.").setPositiveButton("Clear",(d,w)->{artwork.clear();toast("Artwork cache clearing");}).setNegativeButton("Cancel",null).show()));
         LinearLayout resetCard=settingsCard(page,"Reset app");LinearLayout resetRow=row();resetRow.addView(text("Clear Tuhkar settings, saved items and cache. Your actual music/videos are never deleted.",12,muted),new LinearLayout.LayoutParams(0,-2,1));ImageButton reset=toolIcon(17,"Reset Tuhkar",()->confirmReset());reset.setImageDrawable(new FluentIcon(17,Color.parseColor(dark?"#FF6B6B":"#B3261E")));reset.setBackgroundColor(Color.TRANSPARENT);padding(reset,12,12);resetRow.addView(reset,new LinearLayout.LayoutParams(dp(48),dp(48)));resetCard.addView(resetRow);
-        LinearLayout info=settingsCard(page,"About");LinearLayout aboutRow=row();aboutRow.addView(text("Tuhkar v1.1.0 · by KnightWin",12,muted),new LinearLayout.LayoutParams(0,-2,1));ImageButton aboutLogo=new ImageButton(this);aboutLogo.setImageResource(R.drawable.tuhkar_wordmark);aboutLogo.setScaleType(ImageView.ScaleType.FIT_CENTER);aboutLogo.setBackgroundColor(Color.TRANSPARENT);padding(aboutLogo,4,4);aboutLogo.setContentDescription("About and privacy");aboutLogo.setTooltipText("About and privacy");aboutLogo.setOnClickListener(v->about());aboutRow.addView(aboutLogo,new LinearLayout.LayoutParams(dp(112),dp(56)));info.addView(aboutRow);
+        LinearLayout info=settingsCard(page,"About");LinearLayout aboutRow=row();aboutRow.addView(text("Tuhkar v1.2.0 · by KnightWin",12,muted),new LinearLayout.LayoutParams(0,-2,1));ImageButton aboutLogo=new ImageButton(this);aboutLogo.setImageResource(R.drawable.tuhkar_wordmark);aboutLogo.setScaleType(ImageView.ScaleType.FIT_CENTER);aboutLogo.setBackgroundColor(Color.TRANSPARENT);padding(aboutLogo,4,4);aboutLogo.setContentDescription("About and privacy");aboutLogo.setTooltipText("About and privacy");aboutLogo.setOnClickListener(v->about());aboutRow.addView(aboutLogo,new LinearLayout.LayoutParams(dp(112),dp(56)));info.addView(aboutRow);
         styleSettingsSwitchText(page);restoreSettingsScroll(scroll,page);
+    }
+    void playbackSettings(LinearLayout page){
+        LinearLayout card=settingsCard(page,"Playback");Switch background=new Switch(this);background.setText("Background video audio");background.setTextColor(ink);background.setTypeface(font);background.setTextSize(14);background.setChecked(prefs.getBoolean("backgroundVideoAudio",false));tintSettingsSwitch(background);
+        background.setOnCheckedChangeListener((button,on)->prefs.edit().putBoolean("backgroundVideoAudio",on).apply());card.addView(background);
+        card.addView(spacedSettingsNote("Keep local video audio playing when you leave Tuhkar or lock the screen. TV still pauses. Off by default.",12,muted));
     }
     void styleSettingsSwitchText(View view){
         if(view instanceof Switch)((Switch)view).setFontVariationSettings("'wght' 500");
@@ -726,7 +754,7 @@ public class MainActivity extends Activity {
         if(seek!=null){seek.setProgressTintList(android.content.res.ColorStateList.valueOf(accent));seek.setThumbTintList(android.content.res.ColorStateList.valueOf(accent));}
         for(Switch toggle:new ArrayList<>(accentSwitches))tintSettingsSwitch(toggle);
     }
-    void about(){dialog("Tuhkar v1.1.0").setMessage("Created by KnightWin · GNU GPL v3\n\nMusic & videos • Radio & TV\nEqualizer, disc effects, themes and saved favorites.\n\nPRIVACY\n• No ads or analytics. Your media files stay on your device.\n• Optional artwork searches share titles/artists with cover services. Turn downloads off in Settings.\n• Beat glow needs Android’s Record audio permission but analyzes only app playback—no microphone recording or saved/uploaded audio.\n• Streams/artwork contact third parties. HTTP links aren’t encrypted.\n• Reset clears settings and cache, never your music/videos.\n\nStreams may be unavailable or region-limited. Use only authorized links.\n\nCredits: Radio Browser · iptv-org · iTunes · Wikipedia\nManrope & Lobster Two fonts · SIL OFL").setPositiveButton("Done",null).show();}
+    void about(){dialog("Tuhkar v1.2.0").setMessage("Created by KnightWin · GNU GPL v3\n\nMusic & videos • Radio & TV\nEqualizer, disc effects, themes and saved favorites.\n\nPRIVACY\n• No ads or analytics. Your media files stay on your device.\n• Optional artwork searches share titles/artists with cover services. Turn downloads off in Settings.\n• Beat glow needs Android’s Record audio permission but analyzes only app playback—no microphone recording or saved/uploaded audio.\n• Streams/artwork contact third parties. HTTP links aren’t encrypted.\n• Reset clears settings and cache, never your music/videos.\n\nStreams may be unavailable or region-limited. Use only authorized links.\n\nCredits: Radio Browser · iptv-org · iTunes · Wikipedia\nManrope & Lobster Two fonts · SIL OFL").setPositiveButton("Done",null).show();}
     void swipeSelect(int index){if(index<0||index>=shown.size()||!playbackReady())return;boolean keepPlaying=playing;Item item=shown.get(index);queue.reset(shown,item);if(keepPlaying){playback.play(item);playbackPermission();}else playback.selectPaused(item);}
     void start(Item item){if(!playbackReady())return;playback.play(item);playbackPermission();}
     void fitVideo(int width,int height){if(width<=0||height<=0||surface==null)return;surface.post(()->{if(destroyed||surface==null)return;if(tvMode){if(tvStage==null)return;int w=tvStage.getWidth(),h=tvStage.getHeight();if(w<=0||h<=0)return;float fit=Math.min((float)w/width,(float)h/height);int newW=Math.max(1,(int)(width*fit)),newH=Math.max(1,(int)(height*fit));android.view.ViewGroup.LayoutParams currentSize=surface.getLayoutParams();if(currentSize.width!=newW||currentSize.height!=newH)surface.setLayoutParams(new FrameLayout.LayoutParams(newW,newH,Gravity.CENTER));return;}if(videoBox==null)return;int maxW=videoBox.getWidth(),maxH=expanded?videoBox.getHeight():landscape?dp(150):Math.min(Math.max(1,Math.round((float)maxW*height/width)),dp(getResources().getConfiguration().screenHeightDp*.30f));if(maxW<=0||maxH<=0)return;float scale=Math.min((float)maxW/width,(float)maxH/height);videoBox.setMinimumHeight(maxH);int fittedW=Math.max(1,(int)(width*scale)),fittedH=Math.max(1,(int)(height*scale));android.view.ViewGroup.LayoutParams size=surface.getLayoutParams();if(size.width!=fittedW||size.height!=fittedH)surface.setLayoutParams(new LinearLayout.LayoutParams(fittedW,fittedH));});}
@@ -737,7 +765,7 @@ public class MainActivity extends Activity {
         updateQueueButtons();updateArtworkMotion();updateRingProgress();
         if(deck!=null&&current!=null&&!settingsOpen&&!setupOpen&&!expanded)for(int i=0;i<shown.size();i++)if(shown.get(i).url.equals(current.url)){deck.align(i);break;}
         if(tvMode){if(tvTitle!=null)tvTitle.setText(current==null?"TV":current.title);if(tvStatus!=null)tvStatus.setText(status);if(tvPlay!=null)tvPlay.setText(playing?"Ⅱ":"▶");if(!playing)revealTV();else if(tvControls!=null&&tvControls.getVisibility()==View.VISIBLE){main.removeCallbacks(hideTV);main.postDelayed(hideTV,4000);}return;}
-        if(playerBox!=null&&!expanded)playerBox.setContentDescription((current==null?"Player":current.title)+". "+status+". Tap to open Now Playing.");if(nowTitle!=null)nowTitle.setText(current==null?"Ready when you are":current.title);if(nowDetail!=null)nowDetail.setText(status);if(playButton!=null)playButton.setText(playing?"Ⅱ":"▶");if(videoBox!=null)videoBox.setVisibility(inlineVideoVisible()?View.VISIBLE:View.GONE);if(surface!=null&&!tvMode)surface.setContentDescription(current!=null&&current.kind.equals("tv")?"TV preview. Double-tap for landscape fullscreen.":"Video preview");if(seek!=null)seek.setEnabled(prepared);
+        if(playerBox!=null&&!expanded)playerBox.setContentDescription((current==null?"Player":current.title)+". "+status+". Tap to open Now Playing.");if(nowTitle!=null)nowTitle.setText(current==null?"Ready when you are":current.title);if(nowDetail!=null)nowDetail.setText(status);if(playButton!=null)playButton.setText(playing?"Ⅱ":"▶");if(videoBox!=null)videoBox.setVisibility(inlineVideoVisible()?View.VISIBLE:View.GONE);if(surface!=null&&!tvMode)surface.setContentDescription(current!=null&&current.kind.equals("tv")?"TV preview. Double-tap for landscape fullscreen.":"Video preview. Double-tap for landscape fullscreen.");if(seek!=null)seek.setEnabled(prepared);
         if(expanded&&disc!=null&&current!=null&&!current.url.equals(discUrl)){discUrl=current.url;artwork.bind(disc,current,accent);configureDisc(disc,current);}syncDisc();
     }
     String format(long ms){long seconds=Math.max(0,ms/1000);return seconds>=3600?String.format(Locale.ROOT,"%d:%02d:%02d",seconds/3600,seconds/60%60,seconds%60):String.format(Locale.ROOT,"%d:%02d",seconds/60,seconds%60);}
@@ -747,11 +775,11 @@ public class MainActivity extends Activity {
     @Override public void onBackPressed(){if(resetInProgress)return;if(setupOpen){setupBack();return;}if(tvMode){exitTV();return;}if(expanded){expanded=false;render();return;}if(settingsOpen){closeSettings();return;}super.onBackPressed();}
     @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);render();updatePlayer();if(player!=null&&prepared&&isVideo)try{fitVideo(player.getVideoWidth(),player.getVideoHeight());}catch(Exception ignored){}}
     @Override public void onStop(){
-        videoOutput.setRetaining(false);super.onStop();rememberSettingsScroll();cancelPlayHolds();appVisible=false;main.removeCallbacks(accentWave);accentWaveScheduled=false;main.removeCallbacks(hideTV);syncDisc();updateArtworkMotion();if(artwork!=null)artwork.setActive(false);main.removeCallbacks(ticker);
+        cancelSectionTransition();videoOutput.setRetaining(false);super.onStop();rememberSettingsScroll();cancelPlayHolds();appVisible=false;main.removeCallbacks(accentWave);accentWaveScheduled=false;main.removeCallbacks(hideTV);syncDisc();updateArtworkMotion();if(artwork!=null)artwork.setActive(false);main.removeCallbacks(ticker);
         if(list!=null){libraryPosition=list.getFirstVisiblePosition();View first=list.getChildAt(0);libraryOffset=first==null?0:first.getTop();}else if(grid!=null)libraryPosition=grid.getFirstVisiblePosition();
         if(playback!=null){playback.background();if(playback.listener==playbackChanged)playback.listener=null;}
         if(serviceBound){unbindService(playbackConnection);serviceBound=false;}clearVideoOutputCache();playback=null;player=null;
     }
     @Override public void onStart(){super.onStart();appVisible=true;scheduleAccentWave();syncDisc();if(artwork!=null)artwork.setActive(true);main.removeCallbacks(ticker);main.post(ticker);if(!serviceBound)serviceBound=bindService(new Intent(this,PlaybackService.class),playbackConnection,Context.BIND_AUTO_CREATE);}
-    @Override public void onDestroy(){videoOutput.setRetaining(false);cancelPlayHolds();stopDiscAnimation();if(reactiveGlow!=null)reactiveGlow.stop();destroyed=true;generation++;main.removeCallbacksAndMessages(null);if(playback!=null&&playback.listener==playbackChanged)playback.listener=null;if(serviceBound){unbindService(playbackConnection);serviceBound=false;}if(!serviceEq&&equalizer!=null)equalizer.close();io.shutdownNow();if(artwork!=null)artwork.close();super.onDestroy();}
+    @Override public void onDestroy(){cancelSectionTransition();videoOutput.setRetaining(false);cancelPlayHolds();stopDiscAnimation();if(reactiveGlow!=null)reactiveGlow.stop();destroyed=true;generation++;main.removeCallbacksAndMessages(null);if(playback!=null&&playback.listener==playbackChanged)playback.listener=null;if(serviceBound){unbindService(playbackConnection);serviceBound=false;}if(!serviceEq&&equalizer!=null)equalizer.close();io.shutdownNow();if(artwork!=null)artwork.close();super.onDestroy();}
 }
