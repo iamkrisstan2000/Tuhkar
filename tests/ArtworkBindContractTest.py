@@ -30,7 +30,7 @@ assert 'rowSize==null||rowSize.width!=-1||rowSize.height!=cellHeight' in adapter
 assert 'imageSize.width!=artSize||imageSize.height!=artSize' in adapter
 assert 'savedKeys.contains(item.kind+' in adapter and 'isSaved(item)' not in adapter
 assert 'TextUtils.equals(holder.title.getText(),title)' in adapter
-assert 'setContentView(root);movingArt.clear();' in ui
+assert 'setContentView(root);' in ui
 with TemporaryDirectory(prefix='tuhkar-art-bind-') as temp:
     root=Path(temp);files=[]
     for name,text in stubs.items():

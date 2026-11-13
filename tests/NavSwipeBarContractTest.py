@@ -37,6 +37,8 @@ source=Path('app/src/com/luma/media/MainActivity.java').read_text()
 assert 'void addBottomNav(){HorizontalScrollView scroll=new NavSwipeBar' in source
 assert 'void addNavRail(LinearLayout host){ScrollView scroll=new ScrollView' in source
 assert 'if(sectionPage==null||!android.animation.ValueAnimator.areAnimatorsEnabled())return;' in source
-assert 'cancelSectionTransition();sectionPage=null;' in source
+assert 'sectionPage=null;dragging=false;' in source
+assert 'cancelSectionTransition();main.removeCallbacks(hideMediaSearch);' in source
+assert 'if(miniArtwork instanceof SpinningThumbnailView)' in source
 assert 'prefs.getBoolean("backgroundVideoAudio",false)' in source
 print('NOTE: real device touch dispatch, accessibility, surface reattachment and visual smoothness still need phone testing.')

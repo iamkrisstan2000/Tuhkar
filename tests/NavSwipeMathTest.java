@@ -8,8 +8,8 @@ public class NavSwipeMathTest {
         check(NavSwipeMath.direction(-80,8,48)==1);check(NavSwipeMath.direction(80,8,48)==-1);
         check(NavSwipeMath.direction(-20,0,48)==0);check(NavSwipeMath.direction(60,70,48)==0);
         check(NavSwipeMath.direction(0,100,48)==0);check(NavSwipeMath.direction(0,0,48)==0);
-        for(int i=0;i<5;i++){check(NavSwipeMath.target(i,1)==Math.min(4,i+1));check(NavSwipeMath.target(i,-1)==Math.max(0,i-1));check(NavSwipeMath.target(i,0)==i);}
+        for(int i=0;i<4;i++){check(NavSwipeMath.target(i,1)==Math.min(3,i+1));check(NavSwipeMath.target(i,-1)==Math.max(0,i-1));check(NavSwipeMath.target(i,0)==i);}
         check(NavSwipeMath.horizontal(20,2,8));check(!NavSwipeMath.horizontal(4,0,8));
-        System.out.println("PASS: bottom navigation direction, intent threshold and bounded five-section ordering");
+        System.out.println("PASS: bottom navigation direction, intent threshold and bounded four-destination ordering");
     }
 }

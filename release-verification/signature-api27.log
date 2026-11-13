@@ -1,0 +1,18 @@
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: C=PH, O=Luma Media, CN=Luma Media Test
+Signer #1 certificate SHA-256 digest: 0099fddb1985e8be5c1328b8e726bbf59d650e73d3f222443f6fed587b752d1b
+Signer #1 certificate SHA-1 digest: e189ce49ad527eda0f0aab8d90bbee5b98ba9d2f
+Signer #1 certificate MD5 digest: 38e7296b68a2b8f1f7fcc404addff250
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 2048
+Signer #1 public key SHA-256 digest: c528673bd729b5c65567954b79e28d19bb9ac6aaaa90632b1a5643137807ec7d
+Signer #1 public key SHA-1 digest: c0e3aca0ed4e15a71bb2eefbb58113c68713ce7a
+Signer #1 public key MD5 digest: d196cca272858686908e1225573a94c0
+WARNING: APK Signature Scheme v2 signer #1: APK Signature Scheme v2 signer: 0 references unknown APK signature scheme ID: 3

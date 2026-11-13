@@ -24,9 +24,9 @@ assert 'toolIcon(13,' not in remote_tools
 assert remote_tools.index('toolIcon(14,') < remote_tools.index('toolIcon(15,')
 assert 'url.setBackgroundColor(Color.TRANSPARENT)' in remote_tools and 'region.setBackgroundColor(Color.TRANSPARENT)' in remote_tools
 
-assert 'for(int i=0;i<5;i++)' in source
-assert 'boolean selected=i==4?settingsOpen:!settingsOpen&&i==tab;' in source
-assert 'if(t==4)openSettings();else switchTab(t)' in source
+assert 'for(int i=0;i<4;i++)' in source
+assert 'boolean selected=i==3?settingsOpen:!settingsOpen&&(i==0?homeOpen:!homeOpen&&i==1+tab/2);' in source
+assert 'b.setOnClickListener(v->selectDestination(destination))' in source
 assert 'nav.setMinimumWidth(dp(272))' in source
 assert 'if(settingsOpen){renderSettings();if(!landscape)addBottomNav();return;}' in source
 assert 'videoParams.bottomMargin=dp(12)' in source and 'pictureParams.bottomMargin=dp(12)' in source
@@ -53,19 +53,19 @@ assert 'if(full){LinearLayout names=column();' in player
 assert player.count('parent.addView(names,') == 1
 assert 'dp(full?56:64)' in player
 assert 'playerBox=column();playerBox.setPadding(dp(landscape?12:0),dp(2),dp(landscape?12:0),0);' in source
-assert 'if(setupOpen||settingsOpen)render();else if(tab==0||tab==2)loadLocal();' in source
+assert 'if(setupOpen||settingsOpen)render();else if(homeOpen){render();ensureHomeData(true);}else if(tab==0||tab==2)loadLocal();' in source
 icons = Path('app/src/com/luma/media/FluentIcon.java').read_text()
 for kind in [12,14,15]:
     assert 'kind==' + str(kind) in icons
 assert 'bold(headline);' in source and 'bold(caption);' in source and 'bold(heading);' in source
-assert 'TextView title=text("Settings",28,ink);bold(title);' in source
+assert 'TextView hero=text("Settings",40,ink);bold(hero);' in source
 for title in ['holder.title', 'title', 'nowTitle', 'tvTitle']:
     assert 'semibold(' + title + ');' in source
 assert 'view.setFontVariationSettings("\'wght\' 700")' in source
 assert 'view.setFontVariationSettings("\'wght\' 600")' in source
 assert 'new AlertDialog.Builder(this).setTitle(' not in source
 assert 'new LinearLayout.LayoutParams(dp(48),dp(48))' in source
-print('PASS: structural checks — 14dp icon padding restored after initial and updated backgrounds; 48dp targets retained; single borderless header refresh, five-item navigation, 12dp video gaps and rounded TextureView output; icon tools with labels/tooltips and 48dp targets; media-access actions in Settings; compact player omits names and uses a 64dp ring composite (48dp center); bold headers and semibold expanded titles retained.')
+print('PASS: structural checks — 14dp icon padding restored after initial and updated backgrounds; 48dp targets retained; single borderless header refresh, four-destination navigation, 12dp video gaps and rounded TextureView output; icon tools with labels/tooltips and 48dp targets; media-access actions in Settings; audio mini-player uses named artwork card and native wave seeking; video controls retain ring; bold headers and semibold expanded titles retained.')
 print('NOTE: Android background/padding behavior and actual icon sizing must still be verified on a phone.')
 
 thumbnail = Path('app/src/com/luma/media/ThumbnailView.java').read_text()
@@ -82,7 +82,8 @@ assert 'playButton=holdingPlay(false,!full)' in source
 assert 'int size=b==playButton&&!full?64:48;' in source
 assert 'holder.image=new SpinningThumbnailView(MainActivity.this)' in source
 assert 'current.url.equals(image.mediaUrl))openExpanded()' in source
-assert 'image.playback(selected,playing&&appVisible)' in source
+assert '((SpinningThumbnailView)miniArtwork).playback(current!=null,playing&&appVisible' in source
+assert '((SpinningThumbnailView)holder.image).playback(' not in source
 service=Path('app/src/com/luma/media/PlaybackService.java').read_text()
 manifest=Path('app/AndroidManifest.xml').read_text()
 for permission in ['FOREGROUND_SERVICE','FOREGROUND_SERVICE_MEDIA_PLAYBACK','POST_NOTIFICATIONS','WAKE_LOCK']:
@@ -139,7 +140,7 @@ assert 'navParams.topMargin=dp(settingsOpen?0:8)' in source
 assert 'new LinearLayout.LayoutParams(-1,dp(54))' in source
 print('PASS: mockup bottom layout — compact player spacing, shared 54dp nav, no extra Settings player gap')
 
-settings = source[source.index("void renderSettings()"):source.index("void about(")]
+settings = source[source.index("ScrollView settingsScroller("):source.index("void about(")]
 assert "setClipToPadding(false)" not in settings
 assert "setPadding(0,0,0,0)" in settings
 print("PASS: Settings scroll content clipped at fade boundary; no uncovered bottom padding strip")
@@ -247,9 +248,9 @@ assert 'if(dark)return round(normalBg,14)' in selector and 'if(dark)return round
 assert 'LightSurfaceStyle.selectorFill(panel,stable,ink,muted)' in selector
 assert 'selected.setStroke(dp(1),LightSurfaceStyle.selectorStroke(stable,ink))' in selector
 assert 'field.setStroke(dp(1),LightSurfaceStyle.searchStroke(stable,ink))' in selector
-assert 'collection.setSelector(mediaSelector())' in source and 'search.setBackground(searchBackground())' in source
+assert 'collection.setSelector(mediaSelector())' in source and 'mediaSearchField.setBackground(searchBackground())' in source
 assert selector.count('AccentStyle.base(accentStyle(),deviceAccent)')==2
-assert source.index('search.setBackground(searchBackground())') < source.index('padding(search,14,4)')
+assert source.index('mediaSearchField.setBackground(searchBackground())') < source.index('padding(mediaSearchField,14,4)')
 print('PASS: accent-tinted outlined light hover for all list/grid sections; brighter outlined search field; stable RGB shading, original dark surfaces and post-background padding retained')
 
 assert 'view.setReactiveGlow(prefs.getBoolean("reactiveDiscGlow",true));discViews.add(view)' in source
@@ -268,9 +269,9 @@ for phrase in ['No ads or analytics','titles/artists','Record audio','no microph
 assert len(about)<1200
 print('PASS: two-choice scripted welcome; redundant Media Access sentence removed; short About retains key privacy, permission, reset, stream and attribution notices')
 
-assert source.count("if(landscape){playerBox.setGravity(Gravity.CENTER_VERTICAL);playerBox.setPadding(dp(12),dp(12),dp(12),dp(12));")==1
+assert source.count("if(landscape&&tab>=2){playerBox.setGravity(Gravity.CENTER_VERTICAL);playerBox.setPadding(dp(12),dp(12),dp(12),dp(12));")==1
 assert "miniParams.setMargins(dp(16),0,dp(16),0)" in source
-print("PASS: landscape-only vertically centered compact/video player pane with symmetric 12dp padding; portrait compact margins retained")
+print("PASS: landscape video-only centered side pane; landscape audio mini-player below wider library with symmetric 12dp padding; portrait compact margins retained")
 
 assert 'button("About & privacy"' not in source
 assert 'aboutLogo.setImageResource(R.drawable.tuhkar_wordmark)' in source
@@ -317,7 +318,7 @@ assert 'state.getString("fmCountry",fmCountry)' in source
 region=source[source.index('    void applyRegion('):source.index('    void addUrl(){')]
 assert 'prefs.edit().putString("fmCountry",fmCountry).apply()' in region
 assert not any(call in region for call in ['.play(','.pause(','.seekTo(','.stopPlayback(','.reset('])
-assert 'if(pendingSearch!=null)main.removeCallbacks(pendingSearch)' in region
+assert 'if(mediaSearchPending!=null)main.removeCallbacks(mediaSearchPending)' in region
 print('PASS: FM/TV Region header wiring, independent persisted/restored FM choice, Worldwide option, region-scoped search and no playback mutations on region changes')
 
 assert "kind==11" not in icons and "kind==13" not in icons

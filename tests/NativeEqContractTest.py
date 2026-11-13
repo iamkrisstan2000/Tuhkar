@@ -32,7 +32,7 @@ source=Path('app/src/com/luma/media/MainActivity.java').read_text()
 assert 'equalizer.probe(' not in source and 'eqProbePending' not in source
 assert 'Start a song or station to detect' in source
 assert 'Reconnect equalizer' in source and 'if(player!=null&&prepared)' in source
-assert 'if(settingsOpen&&!eqSettingsState.equals(equalizerUiState()))rebuild=true;' in source
+assert 'if(settingsOpen&&"audio".equals(settingsCategory)&&!eqSettingsState.equals(equalizerUiState()))rebuild=true;' in source
 native=Path('app/src/com/luma/media/NativeEq.java').read_text()
 assert 'generateAudioSessionId' not in native
 service=Path('app/src/com/luma/media/PlaybackService.java').read_text()
