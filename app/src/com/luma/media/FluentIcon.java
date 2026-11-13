@@ -63,6 +63,14 @@ public final class FluentIcon extends Drawable {
             Path shield=new Path();shield.moveTo(12,2);shield.lineTo(21,6);shield.lineTo(20,15);shield.quadTo(18,20,12,23);shield.quadTo(6,20,4,15);shield.lineTo(3,6);shield.close();canvas.drawPath(shield,paint);canvas.drawLine(8,12,11,15,paint);canvas.drawLine(11,15,17,9,paint);
         }else if(kind==20){ // guided setup steps
             for(int i=0;i<3;i++){canvas.drawCircle(5,5+i*7,2,paint);canvas.drawLine(10,5+i*7,21,5+i*7,paint);}
+        }else if(kind==21){ // home, using the same rounded 24-unit stroke language
+            Path home=new Path();home.moveTo(3,11);home.lineTo(12,3);home.lineTo(21,11);home.moveTo(5,10);home.lineTo(5,21);home.lineTo(10,21);home.lineTo(10,15);home.lineTo(14,15);home.lineTo(14,21);home.lineTo(19,21);home.lineTo(19,10);canvas.drawPath(home,paint);
+        }else if(kind==22){ // pocket music player: display and click wheel, no brand mark
+            canvas.drawRoundRect(5,2,19,22,3,3,paint);canvas.drawRoundRect(7.5f,4.5f,16.5f,11,1,1,paint);canvas.drawCircle(12,16.5f,3.2f,paint);canvas.drawCircle(12,16.5f,1,paint);
+        }else if(kind==24){ // magnifying glass
+            canvas.drawCircle(10,10,6,paint);canvas.drawLine(14.5f,14.5f,21,21,paint);
+        }else if(kind==23){ // film reel with perforations and a short film tail
+            canvas.drawCircle(11,11,8.5f,paint);canvas.drawCircle(11,11,1.4f,paint);for(int i=0;i<4;i++){double angle=Math.PI/4+i*Math.PI/2;canvas.drawCircle(11+(float)Math.cos(angle)*4.8f,11+(float)Math.sin(angle)*4.8f,1.7f,paint);}Path tail=new Path();tail.moveTo(11,19.5f);tail.lineTo(19,19.5f);tail.quadTo(22,19.5f,22,22);canvas.drawPath(tail,paint);
         }else if(kind==4){ // One connected mechanical cog outline with eight flat-topped teeth.
             canvas.drawPath(gear,paint);canvas.drawCircle(12,12,3,paint);
         }

@@ -26,7 +26,7 @@ final class DiscView extends ImageView {
     private long lastFrame;
     private boolean selected,playing,visible,scheduled;
     String mediaUrl="";
-    private final Runnable frame=new Runnable(){public void run(){scheduled=false;if(!canAnimate())return;long now=SystemClock.uptimeMillis();long elapsed=lastFrame==0?32:Math.max(0,now-lastFrame);lastFrame=now;boolean on=selected&&playing&&visible;
+    private final Runnable frame=new Runnable(){public void run(){scheduled=false;if(!canAnimate())return;long now=SystemClock.uptimeMillis();long elapsed=lastFrame==0?16:Math.max(0,now-lastFrame);lastFrame=now;boolean on=selected&&playing&&visible;
         glowAmount=DiscMotion.fade(glowAmount,on,elapsed);reactiveAmount=DiscMotion.fade(reactiveAmount,reactiveEnabled,elapsed);float drive=on&&reactiveEnabled?DiscPulse.target(low,mid,high):0;averageEnergy=DiscPulse.average(averageEnergy,drive,elapsed);beat=DiscPulse.follow(beat,DiscPulse.contrast(drive,averageEnergy),elapsed);if(!on&&glowAmount==0){beat=0;averageEnergy=0;}if(on){angle=(angle+Math.min(100,elapsed)*360f/16000f)%360f;if(reactiveEnabled)hueAngle=DiscMotion.cycle(hueAngle,beat,elapsed);}invalidate();if(canAnimate())schedule();else lastFrame=0;
     }};
     DiscView(Context context){super(context);setScaleType(ScaleType.CENTER_CROP);setContentDescription("Album artwork disc with an accent-matched reactive ring glow");}
@@ -47,7 +47,7 @@ final class DiscView extends ImageView {
     }
     void energy(float low,float mid,float high){this.low=AudioGlowMath.clamp(low);this.mid=AudioGlowMath.clamp(mid);this.high=AudioGlowMath.clamp(high);invalidate();}
     private boolean canAnimate(){return visible&&isAttachedToWindow()&&isShown()&&getWindowVisibility()==View.VISIBLE&&ValueAnimator.areAnimatorsEnabled()&&(selected&&playing||glowAmount>0||reactiveAmount!=(reactiveEnabled?1:0));}
-    private void schedule(){if(!scheduled&&canAnimate()){scheduled=true;postDelayed(frame,32);}}
+    private void schedule(){if(!scheduled&&canAnimate()){scheduled=true;postOnAnimationDelayed(frame,16);}}
     @Override protected void onAttachedToWindow(){super.onAttachedToWindow();schedule();}
     @Override protected void onDetachedFromWindow(){removeCallbacks(frame);scheduled=false;lastFrame=0;super.onDetachedFromWindow();}
     @Override protected void onWindowVisibilityChanged(int visibility){super.onWindowVisibilityChanged(visibility);if(visibility==View.VISIBLE)schedule();else{removeCallbacks(frame);scheduled=false;lastFrame=0;}}

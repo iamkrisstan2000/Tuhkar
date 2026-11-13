@@ -24,7 +24,7 @@ final class LayoutPreviewView extends View {
             cover(c,80,38,31);color(muted,130);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(1);c.drawCircle(80,38,22,paint);paint.setStyle(Paint.Style.FILL);
             line(c,60,76,40);for(int i=0;i<3;i++){color(i==1?accent:muted,i==1?255:80);c.drawCircle(72+i*8,86,2,paint);}
         }else if(mode==1){
-            for(int row=0;row<6;row++)for(int col=0;col<4;col++){float x=26+col*36,y=7+row*15;cover(c,x,y,4.5f);line(c,x-9,y+6,18);}
+            for(int row=0;row<6;row++)for(int col=0;col<2;col++){float x=12+col*80,y=7+row*15;cover(c,x,y,5);line(c,x+10,y-2,46);line(c,x+10,y+3,32);}
         }else if(mode==2){
             for(int row=0;row<3;row++)for(int col=0;col<3;col++){float x=28+col*52,y=11+row*30;cover(c,x,y,9);line(c,x-14,y+12,28);}
         }else{

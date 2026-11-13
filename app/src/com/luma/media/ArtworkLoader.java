@@ -84,13 +84,14 @@ final class ArtworkLoader {
     private synchronized void throttle()throws InterruptedException{long now=System.currentTimeMillis(),delay=Math.max(0,nextSearch-now);if(delay>0)Thread.sleep(Math.min(delay,3100));nextSearch=System.currentTimeMillis()+3100;}
     private boolean http(String s){return s!=null&&(s.startsWith("https://")||s.startsWith("http://"));}
     private byte[] download(String url,int max)throws Exception{
-        HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();c.setConnectTimeout(6000);c.setReadTimeout(6000);c.setRequestProperty("User-Agent","Tuhkar/1.2.0 (Android)");try{if(c.getResponseCode()!=200)throw new IOException();return read(c.getInputStream(),max);}finally{c.disconnect();}
+        HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();c.setConnectTimeout(6000);c.setReadTimeout(6000);c.setRequestProperty("User-Agent","Tuhkar/2.0.0 (Android)");try{if(c.getResponseCode()!=200)throw new IOException();return read(c.getInputStream(),max);}finally{c.disconnect();}
     }
     private byte[] read(InputStream stream,int max)throws IOException{if(stream==null)throw new IOException();try(InputStream in=stream;ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] b=new byte[8192];int n,count=0;while((n=in.read(b))!=-1){count+=n;if(count>max)throw new IOException("Artwork too large");out.write(b,0,n);}return out.toByteArray();}}
     private Bitmap decode(byte[] bytes){BitmapFactory.Options o=new BitmapFactory.Options();o.inJustDecodeBounds=true;BitmapFactory.decodeByteArray(bytes,0,bytes.length,o);if(o.outWidth<=0||o.outHeight<=0)return null;int sample=1;while(o.outWidth/sample>320||o.outHeight/sample>320)sample*=2;o.inJustDecodeBounds=false;o.inSampleSize=sample;o.inPreferredConfig=Bitmap.Config.RGB_565;return BitmapFactory.decodeByteArray(bytes,0,bytes.length,o);}
     private String key(String value){String cached=keys.get(value);if(cached!=null)return cached;String result=ArtworkKey.of(value);keys.put(value,result);return result;}
     private synchronized void trim(){if(closed)return;File[] files=directory.listFiles();if(files==null)return;Arrays.sort(files,Comparator.comparingLong(File::lastModified));long total=0;for(File f:files)total+=f.length();int count=files.length;for(File f:files){if(total<=24*1024*1024&&count<=800)break;long length=f.length();if(f.delete()){total-=length;count--;}}}
+    void trimMemory(int level){if(level>=android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN){memory.evictAll();keys.evictAll();}else memory.trimToSize(2*1024*1024);}
     void clear(){memory.evictAll();try{pool.execute(()->{File[] files=directory.listFiles();if(files!=null)for(File f:files)f.delete();});}catch(RejectedExecutionException ignored){}}
     boolean resetDiskCache(){close();synchronized(directory){return SafeCacheReset.clear(context.getCacheDir());}}
-    void close(){closed=true;active=false;pool.shutdownNow();memory.evictAll();keys.evictAll();main.removeCallbacksAndMessages(null);}
+    void close(){closed=true;active=false;pool.shutdownNow();synchronized(pending){pending.clear();waiting.clear();}memory.evictAll();keys.evictAll();main.removeCallbacksAndMessages(null);}
 }
