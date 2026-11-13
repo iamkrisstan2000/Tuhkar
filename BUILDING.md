@@ -20,7 +20,7 @@ bash build.sh debug
 bash test.sh
 ```
 
-The debug build creates a local development key in ignored `.signing/`. Output: `output/Tuhkar-v1.2.0-debug.apk`. **This is not the official release signature**, and cannot replace an officially signed app. Use a test device/profile; uninstalling an existing build can erase app settings/favorites (not media).
+The debug build creates a local development key in ignored `.signing/`. Output: `output/Tuhkar-v2.0.0-debug.apk`. **This is not the official release signature**, and cannot replace an officially signed app. Use a test device/profile; uninstalling an existing build can erase app settings/favorites (not media).
 
 `bash build.sh unsigned` produces an aligned unsigned APK for independent signing. Unsigned APKs are not directly installable.
 
@@ -38,13 +38,13 @@ export LEGACY_PASSWORD_FILE=/private/path/legacy-password.txt
 bash build.sh release
 ```
 
-Output: `output/Tuhkar-v1.2.0.apk`. The script uses the checked-in **public** `signing/upgrade-lineage.bin`, rotates to the private KnightWin certificate on Android 9+, and keeps the previous certificate for Android 8 compatibility. Do not replace/recreate those keys or lineage for normal updates. Do not use a public debug key as a release key.
+Output: `output/Tuhkar-v2.0.0.apk`. The script uses the checked-in **public** `signing/upgrade-lineage.bin`, rotates to the private KnightWin certificate on Android 9+, and keeps the previous certificate for Android 8 compatibility. Do not replace/recreate those keys or lineage for normal updates. Do not use a public debug key as a release key.
 
 The release build rejects debuggable APK signing and fails if private inputs are missing; it does not silently fall back to debug signing.
 
 ## Versions & creator
 
-`app.properties` records version **1.2.0**, creator **KnightWin**, **GPL-3.0-only** and application ID **com.luma.media**. The manifest uses **versionName 1.2.0 / versionCode 52**. Code 52 is higher than v1.1.0 (49) and the internal v1.2.0/v1.2.1 previews (50/51), so this official release installs as an update. The public version is v1.2.0; Android uses versionCode, not the visible label, for upgrade ordering. Android uses versionCode for update ordering.
+`app.properties` records version **2.0.0**, creator **KnightWin**, **GPL-3.0-only** and application ID **com.luma.media**. The manifest uses **versionName 2.0.0 / versionCode 70**. Code 70 exceeds every internal preview through 2.0.16/code69, so the consolidated V2.0.0 remains an upgrade. Android uses versionCode for upgrade ordering.
 
 Future releases must increase versionCode and update the visible version and HTTP User-Agent strings consistently. `tests/ReleaseMetadataTest.py` checks this release's identity. Keep the same application ID, SharedPreferences namespace and signing history for compatible upgrades. Do not remove one-time migration code merely because it refers to old preference names.
 
