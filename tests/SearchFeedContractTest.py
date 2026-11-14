@@ -7,7 +7,7 @@ import subprocess,ast
 module=ast.parse(Path('tests/HomeFeedContractTest.py').read_text())
 stubs=next(ast.literal_eval(node.value) for node in module.body if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='stubs' for t in node.targets))
 s=Path('app/src/com/luma/media/MainActivity.java').read_text()
-merge=s[s.index('    void mergeMediaSearch('):s.index('    void updateLibrarySearchLayout(')]
+merge=s[s.index('    void mergeMediaSearch('):s.index('    void attachLibrarySearchResults(')]
 stub=stubs['com/luma/media/MainActivity.java'].replace('public class MainActivity {','import java.util.*;public class MainActivity {int searchScope;ArrayList<Item> searchResults=new ArrayList<>();'+merge)
 stub=stub.replace('public boolean failRadio,failTv;', 'private final java.io.File cache=new java.io.File(System.getProperty("java.io.tmpdir"),"tuhkar-fixture-"+System.nanoTime()); java.io.File getCacheDir(){cache.mkdirs();return cache;}public boolean failRadio,failTv;')
 stubs={'org/json/JSONObject.java':stubs['org/json/JSONObject.java'],'org/json/JSONArray.java':stubs['org/json/JSONArray.java'],'com/luma/media/MainActivity.java':stub}

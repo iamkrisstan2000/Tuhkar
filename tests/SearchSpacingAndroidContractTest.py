@@ -3,22 +3,21 @@
 from pathlib import Path
 import subprocess,tempfile,xml.etree.ElementTree as ET
 s=Path('app/src/com/luma/media/MainActivity.java').read_text()
-method=s[s.index('    void updateLibrarySearchLayout()'):s.index('    void drawMediaSearchResults()')]
+method=s[s.index('    void updateLibrarySearchLayout()'):s.index('    int searchResultRowHeight()')]
 java='''public class SearchSpacing {
 static class View {static final int VISIBLE=0,GONE=8;}
-static class LinearLayout {LayoutParams params;int visibility;void setLayoutParams(LayoutParams p){params=p;}void setVisibility(int v){visibility=v;}static class LayoutParams {int width,height,topMargin;float weight;LayoutParams(int w,int h){width=w;height=h;}LayoutParams(int w,int h,float f){this(w,h);weight=f;}}}
-boolean homeOpen,settingsOpen,setupOpen,expanded,tvMode,mediaSearchVisible;String mediaSearchQuery="";
-LinearLayout mediaSearchPanel=new LinearLayout(),mediaSearchResults=new LinearLayout(),searchLibrary=new LinearLayout();int dp(int v){return v;}
+static class LinearLayout {int visibility=View.GONE;void setVisibility(int v){visibility=v;}}
+boolean landscape,homeOpen,mediaSearchVisible;String mediaSearchQuery="";int updates;
+LinearLayout searchLibrary=new LinearLayout();void updatePortraitSearchOverlay(){updates++;}
 '''+method+'''
-public static void main(String[] args){for(boolean visible:new boolean[]{false,true})for(boolean active:new boolean[]{false,true}){
-SearchSpacing p=new SearchSpacing();p.mediaSearchVisible=visible;p.mediaSearchQuery=active?"song":"";p.updateLibrarySearchLayout();if(p.mediaSearchPanel.params.topMargin!=(visible?0:8))throw new AssertionError("Hidden gap");if(p.mediaSearchPanel.params.weight!=(active?1:0))throw new AssertionError("Result weight");if(p.searchLibrary.visibility!=(active?8:0))throw new AssertionError("Library/result selection");
-p.mediaSearchVisible=!visible;p.updateLibrarySearchLayout();if(p.mediaSearchPanel.params.topMargin!=(visible?8:0))throw new AssertionError("Toggle gap");}
-SearchSpacing p=new SearchSpacing();p.homeOpen=true;p.updateLibrarySearchLayout();if(p.mediaSearchPanel.params!=null)throw new AssertionError("Home untouched");
-System.out.println("PASS: actual layout method: hidden/visible field and active/empty query spacing, result weights, toggle recomputation and Home exclusion");}}
+public static void main(String[] args){for(boolean landscape:new boolean[]{false,true})for(boolean visible:new boolean[]{false,true})for(boolean active:new boolean[]{false,true}){
+SearchSpacing p=new SearchSpacing();p.landscape=landscape;p.mediaSearchVisible=visible;p.mediaSearchQuery=active?"song":"";p.updateLibrarySearchLayout();if(p.searchLibrary.visibility!=0||p.updates!=1)throw new AssertionError("Underlying library must remain visible with overlay");}
+SearchSpacing p=new SearchSpacing();p.searchLibrary=null;p.homeOpen=true;p.updateLibrarySearchLayout();if(p.updates!=1)throw new AssertionError("Home overlay update");
+System.out.println("PASS: actual layout method keeps underlying library visible with floating search in both orientations and all field/query states; Home/null guard");}}
 '''
 with tempfile.TemporaryDirectory() as d:
  p=Path(d)/'SearchSpacing.java';p.write_text(java);subprocess.run(['javac',str(p)],check=True);subprocess.run(['java','-cp',d,'SearchSpacing'],check=True)
-assert 'updateLibrarySearchLayout();}' in s[s.index('    void hideMediaSearchField()'):s.index('    void touchMediaSearch()')]
+assert 'updateLibrarySearchLayout();scheduleMediaSearchIdle();' in s[s.index('    void hideMediaSearchField()'):s.index('    void dismissMediaSearch()')]
 service=Path('app/src/com/luma/media/PlaybackService.java').read_text()
 assert service.count('PendingIntent.FLAG_IMMUTABLE')>=2
 assert 'Context.RECEIVER_NOT_EXPORTED' in service and 'Build.VERSION.SDK_INT>=33' in service
