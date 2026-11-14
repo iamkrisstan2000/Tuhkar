@@ -14,11 +14,12 @@ PASS: 12 media-access policy checks (fresh/upgrade/resume/completed setup and fu
 PASS: bottom navigation direction, intent threshold and bounded four-destination ordering
 PASS: 221186 page-gradient checks: accent-dependent endpoints, darker bottom, light theme preservation, OLED black and text contrast across 4096 accents
 PASS: 65,539 palette assertions across 4,096 accents and both themes; minimum primary text 8.14:1, descriptions 5.14:1; OLED page-only behavior and accent hue propagation.
+PASS: 865 portrait search dropdown sizes, keyboard-constrained height, field-only size and maximum cap
 PASS: 19625 queue/hold assertions; 800 shuffled-queue scenarios; repeat modes, manual skips, order restoration, duplicate protection, 3-second threshold, cancellation, no post-stop click, and ring progress.
 PASS: 1367 RadioDirectory request assertions: Worldwide default, country filters, scoped UTF-8 searches, ISO UK/GB mapping and bounded safe URL construction.
 PASS: 77682 rainbow-ring geometry/intensity checks: small/large/portrait/landscape artwork, full halo/rim/shadow containment and fixed peak-energy bounds
 PASS: 8 cache-reset safety checks: only app-cache content deleted, media files unchanged, symlink escapes/cycles refused
-PASS: 12 media search scope cases, case/whitespace/detail matching, empty query handling, 30s idle policy and saved Cutie migration
+PASS: 12 media search scope cases, case/whitespace/detail matching, empty query handling, 15s idle policy and saved Cutie migration
 PASS: local search snapshot 60s expiry, bounds, key separation, copy isolation and invalidation/stale-writer guard
 PASS: 30017 seek-ring assertions: angular mapping, center/ring separation, top-boundary clamping, live/unknown durations and long-file range safety.
 PASS: stable Settings category identities, complete labels and invalid/restore guards
@@ -35,6 +36,7 @@ PASS: 414 actual video visibility/output assertions: v1.0.0 all-section previews
 PASS: Audio Enhancements/EQ wiring, bold/semibold setup actions, bounded native knob input/accessibility paths, Android 13+ monochrome adaptive icon and existing adaptive fallback
 NOTE: host doubles/structural checks; actual TV audio/video continuity, launcher tint, knob touch/accessibility and visual layout require Android device testing.
 PASS: actual artwork cache trim method halves moderate cache / evicts hidden-severe cache without recycling displayed bitmaps
+PASS: actual cancel method releases queued cancelled futures and preserves subsequent executor work
 PASS: obsolete fields removed, live search cancellation retained, pressure callbacks wired, artwork shutdown waiters cleared and display-aligned guarded disc scheduling; V2 consolidation history included
 PASS: 30 actual HomeFeed assertions: denied-access no scan, folder filtering, metadata/artwork, finite quotas, dated recency, regional changed-station parsing/dedup, malformed URL exclusion, TV selection and honest saved-stream fallbacks
 PASS: four-destination Home routing/state, source icons/RGB tint, bounded background discovery, permission/filter policy, same-kind tap queues, no autoplay and landscape/video-output integration wiring
@@ -46,7 +48,7 @@ PASS: portrait initial 16dp leading inset belongs to scrolling shelf content, no
 PASS: landscape Home columns swapped with recommendations left/discoveries right; portrait section order preserved
 PASS: landscape-only 24dp native horizontal fading edges on Home shelves; Android derives fade strength from scroll extent
 PASS: top source labels/accessibility renamed, source icons/routing retained, Home Settings shortcut removed, navigation Settings retained
-PASS: RGB selected source tracking without rebuild, original app icon rail placement, compact landscape audio header, full-width library/under-list mini-player and retained video side pane
+PASS: RGB selected source tracking without rebuild, original app icon rail placement, compact landscape audio/video headers, full-width library/under-list mini-player and retained video side pane
 NOTE: source wiring, not phone pixel/layout/audio-continuity verification.
 PASS: 181 actual layout-preview draw checks: distinct swipe/two-column-list/9-tile/list sketches, bounded shapes, small/wide sizing and Canvas restoration
 NOTE: deterministic Canvas doubles; not device appearance, selection touch dispatch or accessibility validation.
@@ -55,9 +57,9 @@ PASS: 109 actual media-permission/setup action assertions across API26/32/33/34/
 NOTE: Java framework doubles; not Android permission dialog, folder picker, lifecycle or device UI validation.
 PASS: setup gate, existing-install migration, persisted step, skip/replay, permission refresh, partial-video scanning and indexed-library-only integration
 PASS: single prior notice, one OS permission batch/callback, denial review/retry, welcome-only two choices, cursive bundled headings, logo artwork and migration/recreation recovery
-PASS: actual search idle/hide methods: 30s, interaction reset, render retains deadline, manual/timeout hide preserves query/results, null view guards
-PASS: search icon/panel wiring, 30s field-only hiding, retained results, debounce/stale guards, permission-scoped local scan, bounded online search and Cutie selected-control gradient
+PASS: search icon/panel wiring, 15s search timeout and graceful field hiding, retained results, debounce/stale guards, permission-scoped local scan, bounded online search and Cutie selected-control gradient
 NOTE: source contracts, not real keyboard/touch timing, live directory availability or Android gradient screenshots.
+PASS: search field precedes Music/Video heading in portrait, separate weighted results host occupies library slot; landscape Home wordmark removed but portrait wordmark and rail icon retained
 PASS: mini-player-only thumbnail spin, pause/background/reduced-motion guards, static library gesture continuity and minimal liquid fill wiring
 PASS: 19 actual whole-card checks: click/drag/cancel, vertical and button exclusions, FM no-seek/real-energy glow, paused/reduced-motion/hidden drawing, clipping and accessible seeking
 PASS: 34 actual NativeEq checks: idle presets, real/disabled session discovery, band application, session transitions, native failures and release safety
@@ -70,17 +72,21 @@ PASS: 50 real PlaybackService/queue contract assertions: service ownership, back
 NOTE: deterministic Java framework doubles; NOT Android foreground-service eligibility, audio playback, media notification, power or focus-dispatch verification.
 PASS: 4788 actual crossfade/reverb/controller assertions: music-only routing, bounded constant-sum fades, lazy preload, pause/seek/focus/noisy/stop/settings/selection cleanup, queue/repeat, error fallback/recovery and shared-effect release.
 NOTE: deterministic Android media/effect doubles; not real audio quality, hardware effect capability or gapless decoding verification.
+PASS: both-orientation dimmed sibling overlay, unchanged underlying library, bounded animated dropdown/IME insets, backdrop dismissal/icon hit-through, reduced-motion/stale-animation guards and retained search timeout wiring
+NOTE: structural checks, not Android window/keyboard/accessibility or GPU screenshots.
 PASS: 35 actual DiscView/Visualizer contract assertions: selected-only rotation, pause/visibility/detach/reduced-motion, shader reuse, session scope/rate, FFT delivery, release and fallback
 NOTE: deterministic framework/graphics/audio doubles, not Android rendering, real Visualizer support, permission UI, audio or pixel validation.
 PASS: native session-only analyzer, no microphone-recording API, bounded frame scheduling and no per-draw gradient allocation
 PASS: continuous rainbow ring, circular diffusion bounds and full transparent outer perimeter
-PASS: v2.0.0/code70 and KnightWin identity, GPLv3-only/OFL notices, valid Ko-fi button, nondebuggable official signing, explicit secret-file inputs and public-key-only signing directory
+PASS: v2.1.0/code77 and KnightWin identity, GPLv3-only/OFL notices, valid Ko-fi button, nondebuggable official signing, explicit secret-file inputs and public-key-only signing directory
 PASS: 21 real RingPlayButton routing assertions: center/outer separation, seek, multi-touch/movement/lifecycle cancellation, live mode, keyboard and accessibility seeking.
 NOTE: Java Android/hold-button stubs, not real touch dispatch, hold timing, pixels or media playback.
 PASS: 329 RoundedVideoView contract assertions: 12dp clipping, nonopaque GPU layer, output lifecycle, 100 exact-target transfers, stale-owner safety and normal/abandoned cleanup.
 NOTE: Java view/graphics doubles, not Android TextureView rendering, decoder output or corner-pixel verification.
 PASS: 16 actual SearchFeed/merge checks: scope, selected regions, query routing, TV filter/logo, malformed URL exclusion, offline notes, deduplication, local matching, mixed results and cancellation
-PASS: actual layout method: hidden/visible field and active/empty query spacing, result weights, toggle recomputation and Home exclusion
+PASS: actual hotpatch methods: Enter hides/fades field but keeps results; 15s idle survives field hide, deadline tracks interaction; full dismiss cancels work/clears results; animation and reduced-motion paths
+PASS: back-to-library priority, idle full-dismiss wiring, result-selection hide, Enter listener and compact landscape Video source tabs
+PASS: actual layout method keeps underlying library visible with floating search in both orientations and all field/query states; Home/null guard
 PASS: Android12+ immutable playback intents, gated grants/receiver flags, media foreground-service declaration and IME insets retained; search snapshot invalidation, TV cache caps and recycled rows wired
 NOTE: compatibility source review, not device testing, performance benchmarking or newer-Android certification.
 PASS: category home/detail routing, landscape split panes, back navigation, saved category/scroll, mode persistence/System default, all original settings access and reset/theme safety wiring

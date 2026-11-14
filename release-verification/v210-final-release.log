@@ -1,0 +1,21 @@
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: O=KnightWin, CN=KnightWin
+Signer #1 certificate SHA-256 digest: ec1bfd2789fe59bd55c8170258798468cdecd7e2e231c7d0205b648dec29cc7a
+Signer #1 certificate SHA-1 digest: 2344a64e9fd6d11efd1f26148985b48c92b61ba0
+Signer #1 certificate MD5 digest: 13780ee48d6115339c77390a573e8566
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 3072
+Signer #1 public key SHA-256 digest: 372012112a806e827d4dcb64d77a72ccbdec1a2739aa25773c5c7f5e4c9b6afa
+Signer #1 public key SHA-1 digest: 6dbacfa8f370493867b1e4dc3c9c1e25d4323b88
+Signer #1 public key MD5 digest: a9cd596906d1290ac069b38ba3632297
+080c46787b22777cc99a2a5326879845ef562265fa144ee2d566e117b34ec0e5  output/Tuhkar-v2.1.0.apk
+-rw-r--r-- 1 user user 474K Nov 13 18:05 output/Tuhkar-v2.1.0.apk
