@@ -1,14 +1,10 @@
-# Manual upload: TUHKAR v2.0.0
+# Manual upload — TUHKAR v2.1.0
 
-The two release files are **Tuhkar-v2.0.0.apk** and **Tuhkar-v2.0.0-source.zip**. Nothing was uploaded or published on your behalf.
+Two files: **Tuhkar-v2.1.0.apk** and **Tuhkar-v2.1.0-source.zip**. Nothing was published on your behalf.
 
-1. Install the signed APK over your current compatible preview and perform the phone checks in RELEASE-NOTES.md. Do not uninstall first: uninstalling can erase settings/Saved items.
-2. Extract the source ZIP. Upload the contents of its **Tuhkar/** directory to the repository root, including hidden `.github/` and `.gitignore`. Prefer a clean source-tree replacement: web uploads do not delete old files automatically.
-3. Remove obsolete files left from older repositories that are absent in this archive, especially `app/src/com/luma/media/WaveSeekBar.java`, `tests/WaveSeekBarContractTest.py`, and conflicting raster `drawable-nodpi/ic_foreground.png` / `ic_monochrome.png`. Do not delete the approved current XML launcher layers or wordmark.
-4. Preserve LICENSE, PRIVACY.md, attribution/font licenses, tests, build scripts and public signing certificates/lineage. Never upload private signing kits, password files, `.signing/`, SDKs, `classes/`, `generated/`, `dex/` or old output APKs.
-5. Prepare release/tag **v2.0.0** and attach these two files. Use RELEASE-NOTES.md for the release description; CHANGELOG.md and PREVIEW-HISTORY.md describe the development history. If a previous v2.0.0 tag/release already exists, review it before deciding whether to replace a draft or choose another tag; do not silently retarget a published tag.
+1. Install the signed APK over your compatible current build without uninstalling. Check search keyboard/dropdown, Enter/selection, Back/backdrop/15-second exit, orientation, landscape headers and playback continuity.
+2. Extract the source ZIP and upload the contents of **Tuhkar/** to the repository root, including .github/ and .gitignore. Prefer clean source replacement: web uploads do not delete obsolete files automatically.
+3. Remove superseded files absent from this source archive, notably old WaveSeekBar.java/test or conflicting raster ic_foreground.png/ic_monochrome.png. Preserve the approved current launcher XML/wordmark assets, public signing certificates/lineage, licenses and tests.
+4. Prepare release/tag **v2.1.0**, attach these two files and use RELEASE-NOTES.md plus the short CHANGELOG.md. If the tag already exists, review it rather than silently moving a published tag.
 
-## Upgrade identity
-Public versionName: **2.0.0**. Internal versionCode: **70**, greater than the final internal preview 2.0.16/code69. Keep the existing application ID/signing identity and increment the internal code for every future release. The source ZIP contains public certificates only; future signed builds need the owner's private kit, which is deliberately not included.
-
-The CI workflow creates development/debug builds, not the official release signature. A debug build cannot replace this signed APK.
+VersionName **2.1.0**, internal **versionCode 77**, greater than internal 2.1.5/code76 and public v2.0.0/code70. Keep the same application ID/signing lineage and increment the code in future updates. The source ZIP includes public signing data only; keep the private signing kit/passwords private. Do not upload .signing/, SDK, classes/, dex/, generated/ or old APK output folders. CI debug builds are not the official release signature.

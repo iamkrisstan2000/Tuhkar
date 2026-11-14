@@ -1,30 +1,14 @@
-# TUHKAR v2.0.0 — public V2 release
+# TUHKAR v2.1.0 hotpatch
 
-KnightWin · GPL-3.0-only · com.luma.media
+KnightWin · GPL-3.0-only · com.luma.media · versionCode 77
 
-This is the consolidated V2 release, with internal **versionCode 70**. It upgrades the internal 2.0.1–2.0.16 previews and earlier compatible signed builds; Android compares the internal code, not the visible version label. The signing identity and lineage are unchanged. No publishing was performed.
+- Unified floating search in portrait/landscape, with dim backdrop and content-sized animated results.
+- Enter/selection field hiding; search-first Back, backdrop exit and 15-second inactivity dismissal.
+- Header/list spacing fixes and compact landscape Home/Video headers.
+- Cleanup: obsolete fixed-height dropdown helper removed; cancelled queued search jobs purged; background worker threads retire after 20 seconds idle. Existing bounded caches, memory-pressure handling and recycled rows retained.
 
-## Included
-- Native local Music/Video libraries, Internet Radio and Online TV, portrait/landscape navigation and responsive settings.
-- Home discovery shelves, exact requested callsigns, source labels, landscape edge fades and adaptive idle Video/TV browsing width.
-- Toggleable combined scoped search, 30-second field hiding without losing results, local permission/folder policies and selected-region online directories.
-- Now Playing, liquid seek mini-player, spinning artwork, real own-session audio-reactive disc, background playback, inline/fullscreen video controls and native audio effects.
-- Ten palettes including Cutie’s pastel pink–white–powder-blue selected controls, System/Light/Dark and OLED options.
+Public label is consolidated to **2.1.0**. Internal **code77** exceeds all internal builds through 2.1.5/code76, so normal upgrades remain possible without uninstalling. Signing identity unchanged.
 
-## Cleanup, RAM and animation work
-- Removed obsolete standalone search view/debounce state. Existing cancellation now targets the active search task rather than a dead variable.
-- Artwork cache halves under moderate memory pressure and releases cache entries when hidden/severe; search snapshots clear under pressure. No displayed bitmap is forcibly recycled.
-- Artwork loader clears pending/waiter registries at shutdown. Existing weak-reference view registries, bounded image caches/queues, sampled images, cached local/TV search and recycled result rows remain.
-- Disc animation uses display-aligned scheduling with a 16ms minimum delay rather than a fixed 32ms handler delay; elapsed-time motion, fade-out, visibility and reduced-motion checks remain.
-- Removed generated/intermediate build files from source delivery. Required migrations, compatibility code, licenses, fonts, public signing lineage and regression tests are intentionally retained.
+61 host suites (27 Java / 34 Python), independent extracted-source rebuild/tests and signature checks for API26/27/28/31/35. No on-device installation, keyboard, GPU/frame-time, RAM or battery benchmarking performed. Optimizations are code-level changes, not measured performance guarantees. Verify on your phone before publishing. Nothing uploaded/published.
 
-## Road to V2
-See **CHANGELOG.md** for the milestone narrative and **PREVIEW-HISTORY.md** for the detailed internal development log. Preview version numbers there are historical labels, not newer public releases.
-
-## Verification and limits
-- 58 host suites (26 Java / 32 Python), including actual memory-trim methods with doubles, animation lifecycle/geometry, search spacing, cache policies, permissions and playback contracts.
-- Signed release and API26/27/28/31/35 signature checks; source ZIP independently extracted, rebuilt and tested.
-- Android12+ safeguards retained; minimum Android8/API26 and target API35 unchanged.
-- No device/emulator installation, GPU/frame-time or RAM benchmarking was performed. These are code-level optimizations, not claims of measured savings or guaranteed frame rates.
-
-Before publishing, install over your current signed preview without uninstalling, then check search/timer/layout, portrait/landscape, light/dark/Cutie, paused/Stop states, streaming, background playback and disc animation on a phone.
+Short changelog: CHANGELOG.md. Detailed history retained separately. Android12+ safeguards, minimum API26 and target API35 unchanged.
