@@ -5,6 +5,34 @@
 
 A lightweight native Android media player, created by **KnightWin**.
 
+## Screenshots 
+
+<img width="1080" height="2400" alt="Screenshot_20261114-105015" src="https://github.com/user-attachments/assets/44df0fa9-49bb-4a3d-98cd-b55050268f71" />
+<img width="2400" height="1080" alt="Screenshot_20261114-105000" src="https://github.com/user-attachments/assets/f1c7257c-dd80-4767-8aaf-003ae432e73e" />
+<img width="2400" height="1080" alt="Screenshot_20261114-104954" src="https://github.com/user-attachments/assets/b5f9cab5-e31f-48cd-84d9-1c1fbda3fbe1" />
+<img width="2400" height="1080" alt="Screenshot_20261114-104950" src="https://github.com/user-attachments/assets/9cff3e0e-cc66-4bc4-8bed-c7e218e168e9" />
+<img width="2400" height="1080" alt="Screenshot_20261114-104944" src="https://github.com/user-attachments/assets/f9a7c9b7-bbd8-40a6-94d1-d5204b4da588" />
+<img width="2400" height="1080" alt="Screenshot_20261114-104940" src="https://github.com/user-attachments/assets/ac9b3600-0f3e-4808-8abc-847cb700717f" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104931" src="https://github.com/user-attachments/assets/319bcfd5-f67c-485b-8f68-690ab1aa47f5" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104927" src="https://github.com/user-attachments/assets/972d406e-e84f-46ef-9bd5-003ea136f04d" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104923" src="https://github.com/user-attachments/assets/ade3367b-65b7-4947-89d8-464d70ab3586" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104919" src="https://github.com/user-attachments/assets/6364cfc4-622d-4764-a388-7708850453c0" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104912" src="https://github.com/user-attachments/assets/d3228693-a9ed-4e66-81aa-0b951266db5f" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104905" src="https://github.com/user-attachments/assets/c69cb79c-1f94-4655-ada1-2c5ccc382bea" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104901" src="https://github.com/user-attachments/assets/343cb940-460b-41b4-8669-8f3e243aa945" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104858" src="https://github.com/user-attachments/assets/9d7cdcd9-3f25-41c7-a0ee-a1698e8d014b" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104853" src="https://github.com/user-attachments/assets/35e7435f-75b1-4e21-ac00-29f8bcd9a965" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104837" src="https://github.com/user-attachments/assets/31872975-c48c-4540-b523-458478f81eea" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104832" src="https://github.com/user-attachments/assets/b45c474d-ade0-489d-90f3-a1019026010f" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104820" src="https://github.com/user-attachments/assets/ffacb499-eca6-44a6-8aee-1aefb696ef24" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104815" src="https://github.com/user-attachments/assets/f6d46c1b-445c-4b6f-81bc-970191a97348" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104808" src="https://github.com/user-attachments/assets/f0f75765-974b-44fd-b638-c780996294d9" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104804" src="https://github.com/user-attachments/assets/31fd0753-4442-4193-837b-8d304d35f5ce" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104753" src="https://github.com/user-attachments/assets/78c889ae-a21e-4110-a385-8824cb2cd818" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104746" src="https://github.com/user-attachments/assets/7ab3330e-0927-4f56-afe4-df403dea01c5" />
+<img width="1080" height="2400" alt="Screenshot_20261114-104737" src="https://github.com/user-attachments/assets/de9c4309-5a79-433e-a12d-a96a2702b10a" />
+
+
 ## Make yourself at home
 
 - Play music and videos from your phone or SD card.
